@@ -43,10 +43,9 @@ const sendPhoto = (chatId: number, userProgress: any) => {
   const photo = userProgress.photos[userProgress.currentPhotoIndex];
   const photoPath = path.join(__dirname, '../../uploads', photo.path);
 
-//   console.log(`Sending photo ${photoPath}`);
+  console.log(`Sending photo ${FULL_URL}${photoPath}`);
 
-//   bot.sendPhoto(chatId, `${FULL_URL} ${photoPath}`, {
-bot.sendPhoto(chatId, 'https://c8.alamy.com/comp/P6YB2N/los-angeles-usa-june-29-unidentified-random-people-in-the-streets-of-downtown-of-los-angeles-ca-on-june-29-2018-P6YB2N.jpg', {
+  bot.sendPhoto(chatId, `${FULL_URL}/${photoPath}`, {
     caption: "Please send your location when you reach this point."
   });
 
