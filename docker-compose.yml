@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./backend:/app
+    environment:
+      - MONGO_URI=mongodb://db:27017/photoQuest
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+  db:
+    image: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./telegram-bot-service:/app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MONGO_URI=mongodb://db:27017/photoQuest
+      - NODE_ENV=development
+    depends_on:
+      - db
+
+volumes:
+  mongo-data:
