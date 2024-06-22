@@ -20,7 +20,7 @@ bot.onText(/\/start/, (msg) => {
 // Play command
 bot.onText(/\/play/, async (msg) => {
   const chatId = msg.chat.id;
-  const photos: IPhoto[] = await Photo.find({}).sort({ createdAt: 1 });
+  const photos: IPhoto[] = await Photo.find({}).sort({ order: 1 });
 
   if (photos.length === 0) {
     bot.sendMessage(chatId, "No photos available to create a quest. Please upload photos first.");
