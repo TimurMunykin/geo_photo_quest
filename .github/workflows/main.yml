@@ -21,7 +21,9 @@ jobs:
         SERVER_HOST: ${{ secrets.SERVER_HOST }}
         SERVER_USER: ${{ secrets.SERVER_USER }}
       run: |
-        ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << 'EOF'
+        ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << EOF
           cd $PROJECT_PATH
+          pwd
+          ls -la
           ./run.sh
         EOF
