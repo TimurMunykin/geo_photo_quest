@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { FULL_URL } from '../config';
+import { API_URL } from '../config';
 
 const PhotoUpload: React.FC = () => {
   const [files, setFiles] = useState<FileList | null>(null);
@@ -19,7 +19,7 @@ const PhotoUpload: React.FC = () => {
       }
 
       try {
-        const response = await axios.post(`${FULL_URL}/photos/upload`, formData, {
+        const response = await axios.post(`${API_URL}/photos/upload`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },

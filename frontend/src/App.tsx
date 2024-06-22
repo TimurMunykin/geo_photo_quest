@@ -4,14 +4,14 @@ import PhotoUpload from './components/PhotoUpload';
 import Map from './components/Map';
 import ManagePoints from './components/ManagePoints';
 import axios from 'axios';
-import { FULL_URL } from './config';
+import { API_URL } from './config';
 
 const App: React.FC = () => {
   const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
 
   const resetPhotos = async () => {
     try {
-      await axios.delete(`${FULL_URL}/photos/reset`);
+      await axios.delete(`${API_URL}/photos/reset`);
       alert('All photos deleted');
     } catch (error) {
       console.error('Error deleting photos:', error);
@@ -21,7 +21,7 @@ const App: React.FC = () => {
 
   const createRoute = async () => {
     try {
-      const response = await axios.get(`${FULL_URL}/photos/route`);
+      const response = await axios.get(`${API_URL}/photos/route`);
       setRoute(response.data);
       console.log('Route created:', response.data);
     } catch (error) {

@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import L, { Control } from 'leaflet';
 import 'leaflet-routing-machine';
-import { FULL_URL } from '../config';
+import { API_URL } from '../config';
 
 interface Photo {
   _id: string;
@@ -28,7 +28,7 @@ const createIcon = (photoPath: string) => {
         </clipPath>
       </defs>
       <circle cx="30" cy="30" r="30" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
-      <image href="${FULL_URL}/uploads/${photoPath}" x="2" y="2" height="56" width="56" clip-path="url(#clipCircle)" />
+      <image href="${API_URL}/uploads/${photoPath}" x="2" y="2" height="56" width="56" clip-path="url(#clipCircle)" />
     </svg>
   `;
   return L.divIcon({
@@ -75,7 +75,7 @@ const Map: React.FC<MapProps> = ({ route }) => {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
-        const response = await axios.get(`${FULL_URL}/photos`);
+        const response = await axios.get(`${API_URL}/photos`);
         setPhotos(response.data);
       } catch (error) {
         console.error('Error fetching photos:', error);

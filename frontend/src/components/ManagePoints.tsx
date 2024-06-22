@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { FULL_URL } from '../config';
+import { API_URL } from '../config';
 import './ManagePoints.css';
 
 interface Photo {
@@ -24,7 +24,7 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
-        const response = await axios.get(`${FULL_URL}/photos`);
+        const response = await axios.get(`${API_URL}/photos`);
         setPhotos(response.data);
         setOrder(response.data.map((photo: Photo, index: number) => index));
       } catch (error) {
@@ -48,7 +48,7 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
     setRoute(route);
 
     // Save the new order to the backend
-    await axios.put(`${FULL_URL}/photos/order`, {
+    await axios.put(`${API_URL}/photos/order`, {
       order: orderedPhotos.map(photo => photo._id)
     });
   };
@@ -59,7 +59,7 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
       <div className="points-container">
         {order.map((index, idx) => (
           <div key={photos[index]._id} className="point-card">
-            <img src={`${FULL_URL}/uploads/${photos[index].path}`} alt={photos[index].path} className="point-image"/>
+            <img src={`${API_URL}/uploads/${photos[index].path}`} alt={photos[index].path} className="point-image"/>
             <div className="point-info">
               <p>{idx + 1}. {photos[index].geolocation.longitude.toFixed(5)}, {photos[index].geolocation.latitude.toFixed(5)}</p>
               <button onClick={() => reorder(idx, idx - 1)} disabled={idx === 0} className="order-button">Up</button>
