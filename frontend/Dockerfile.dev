@@ -1,0 +1,23 @@
+# Development Dockerfile
+
+# Use a base image with Node.js
+FROM node:14
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Set environment variable
+ENV NODE_ENV=development
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Start the development server
+CMD ["npm", "start"]

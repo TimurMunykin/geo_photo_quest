@@ -1,1 +1,1 @@
-docker compose -f docker-compose-fe.yml  up --build -d
+docker compose -f docker-compose.dev.yml up --build frontend -d
