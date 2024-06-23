@@ -8,6 +8,7 @@ const NavBar: React.FC = () => {
       <Link to="/">Home</Link>
       <Link to="/upload">Upload Photos</Link>
       <Link to="/manage">Manage Points</Link>
+      <Link to="/create-quest">Create Quest</Link>
       <Link to="/login">Login</Link>
       <Link to="/register">Register</Link>
     </nav>

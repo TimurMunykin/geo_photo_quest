@@ -1,79 +1,92 @@
 import TelegramBot from 'node-telegram-bot-api';
-import Photo, { IPhoto } from './models/photo';
+import Quest from './models/quest';
 import mongoose from 'mongoose';
 import path from 'path';
 import { FULL_URL } from './config';
+import { IPhoto } from './models/photo';
 
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/photoQuest';
 mongoose.set('strictQuery', true);
 mongoose.connect(mongoURI);
 
-
 const botToken = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const bot = new TelegramBot(botToken, { polling: true });
 
-// Start command
+interface UserProgress {
+  currentPhotoIndex: number;
+  photos: IPhoto[];
+}
+
+const sessions: Map<number, UserProgress> = new Map();
+
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /play to start the game.");
+  bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /play <token> to start the game.");
 });
 
-// Play command
-bot.onText(/\/play/, async (msg) => {
+bot.onText(/\/play (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
-  const photos: IPhoto[] = await Photo.find({}).sort({ order: 1 });
+  const token = match?.[1];
 
-  if (photos.length === 0) {
-    bot.sendMessage(chatId, "No photos available to create a quest. Please upload photos first.");
+  const quest = await Quest.findOne({ token }).populate('photos');
+
+  if (!quest) {
+    bot.sendMessage(chatId, "Invalid token. Please try again.");
     return;
   }
 
-  // Save user progress in memory (for simplicity)
-  const userProgress = {
-    currentPhotoIndex: 0,
-    photos: photos,
-  };
+  const userProgress: UserProgress = {
+  currentPhotoIndex: 0,
+  photos: quest.photos as unknown as IPhoto[], // Type cast to match the interface
+};
 
-//   console.log(`Starting quest for user ${photos}`);
+  sessions.set(chatId, userProgress);
   bot.sendMessage(chatId, "Starting your quest. Here is your first photo.");
-  sendPhoto(chatId, userProgress);
+  sendPhoto(chatId);
 });
 
-// Function to send photo
-const sendPhoto = (chatId: number, userProgress: any) => {
+const sendPhoto = (chatId: number) => {
+  const userProgress = sessions.get(chatId);
+  if (!userProgress) return;
+
   const photo = userProgress.photos[userProgress.currentPhotoIndex];
+  console.log('***photo', photo);
+  console.log('***userProgress.photos', userProgress.photos);
+  if (!photo) return;
   const photoPath = path.join(__dirname, '../../uploads', photo.path);
 
-  console.log(`Sending photo ${FULL_URL}${photoPath}`);
-
   bot.sendPhoto(chatId, `${FULL_URL}/${photoPath}`, {
-    caption: "Please send your location when you reach this point."
-  });
-
-  // Save user progress in memory (for simplicity)
-  bot.on('location', (msg) => {
-    const userLocation = msg.location;
-
-    if (userLocation) {
-      const { latitude, longitude } = photo.geolocation;
-      const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
-      if (distance < 50) { // Assuming 50 meters as an acceptable distance
-        userProgress.currentPhotoIndex += 1;
-        if (userProgress.currentPhotoIndex < userProgress.photos.length) {
-          bot.sendMessage(chatId, "Correct! Here is your next photo.");
-          sendPhoto(chatId, userProgress);
-        } else {
-          bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
-        }
-      } else {
-        bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
-      }
-    }
+    caption: "Please send your location when you reach this point.",
   });
 };
 
-// Function to calculate distance between two geolocations
+bot.on('location', (msg) => {
+  const chatId = msg.chat.id;
+  const userProgress = sessions.get(chatId);
+  if (!userProgress) return;
+
+  const userLocation = msg.location;
+  if (userLocation) {
+    const photo = userProgress.photos[userProgress.currentPhotoIndex];
+    const { latitude, longitude } = photo.geolocation;
+    const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
+    if (distance < 50) {
+      userProgress.currentPhotoIndex += 1;
+      if (userProgress.currentPhotoIndex < userProgress.photos.length) {
+        sessions.set(chatId, userProgress); // Update session
+        bot.sendMessage(chatId, "Correct! Here is your next photo.");
+        sendPhoto(chatId);
+      } else {
+        bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
+        sessions.delete(chatId); // Remove session
+      }
+    } else {
+      bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
+    }
+  }
+});
+
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371e3; // Earth radius in meters
+  const R = 6371e3;
   const phi1 = lat1 * Math.PI / 180;
   const phi2 = lat2 * Math.PI / 180;
   const deltaPhi = (lat2 - lat1) * Math.PI / 180;
@@ -84,6 +97,5 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
     Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  const distance = R * c; // in meters
-  return distance;
+  return R * c;
 };

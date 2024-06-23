@@ -7,7 +7,7 @@ export interface IPhoto extends Document {
     longitude: number;
   };
   createdAt: Date;
-  order: number;
+  user: mongoose.Schema.Types.ObjectId;
 }
 
 const PhotoSchema: Schema = new Schema({
@@ -17,7 +17,7 @@ const PhotoSchema: Schema = new Schema({
     longitude: { type: Number, required: true }
   },
   createdAt: { type: Date, default: Date.now },
-  order: { type: Number, default: 0 }
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 });
 
 export default mongoose.model<IPhoto>('Photo', PhotoSchema);

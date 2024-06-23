@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import photoRoutes from './routes/photoRoutes';
 import authRoutes from './routes/authRoutes';
+import questRoutes from './routes/questRoutes';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
@@ -33,6 +34,7 @@ mongoose.connect(process.env.MONGO_URI!)
 app.use(express.json());
 app.use('/photos', photoRoutes);
 app.use('/auth', authRoutes);
+app.use('/quests', questRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

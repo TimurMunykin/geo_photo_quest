@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Map from './components/Map';
 import PhotoUpload from './components/PhotoUpload';
 import ManagePoints from './components/ManagePoints';
 import Login from './components/Login';
-import Register from './components/Register'; // Import Register component
+import Register from './components/Register';
 import NavBar from './components/NavBar';
+import CreateQuest from './components/CreateQuest'; // Import CreateQuest component
 
 const App: React.FC = () => {
-  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
-
   return (
     <Router>
       <div>
         <NavBar />
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} /> {/* Add Register route */}
-          <Route path="/" element={<Map route={route} />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Map route={[]} />} />
           <Route path="/upload" element={<PhotoUpload />} />
-          <Route path="/manage" element={<ManagePoints setRoute={setRoute} />} />
+          <Route path="/manage" element={<ManagePoints setRoute={() => {}} />} />
+          <Route path="/create-quest" element={<CreateQuest />} />
         </Routes>
       </div>
     </Router>
