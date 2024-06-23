@@ -2,16 +2,24 @@ import { Request, Response } from 'express';
 import { extractGeolocation } from '../services/geolocationService';
 import Photo from '../models/photo';
 import { IUser } from '../models/user';
+import Quest from '../models/quest';
+import mongoose from 'mongoose';
 
 export const uploadPhotos = async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
+    const { questId } = req.body;
     const userId = req.user?._id;
+
+    const quest = await Quest.findById(questId);
+    if (!quest) {
+      return res.status(400).send({ message: 'Invalid quest ID' });
+    }
 
     const photoPromises = files.map(async (file, index) => {
       const photoPath = file.filename;
       const geolocation = await extractGeolocation(file.path);
-      const photo = new Photo({ path: photoPath, geolocation, user: userId, order: index });
+      const photo = new Photo({ path: photoPath, geolocation, user: userId, quest: questId, order: index });
       return await photo.save();
     });
 
@@ -26,7 +34,8 @@ export const uploadPhotos = async (req: Request, res: Response) => {
 export const getPhotos = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
-    const photos = await Photo.find({ user: userId });
+    const { questId } = req.query;
+    const photos = await Photo.find({ user: userId, quest: questId });
     res.status(200).send(photos);
   } catch (error) {
     console.error('Error:', error);

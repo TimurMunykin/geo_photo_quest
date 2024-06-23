@@ -13,6 +13,11 @@ interface Photo {
   createdAt: string;
 }
 
+interface Quest {
+  _id: string;
+  name: string;
+}
+
 interface ManagePointsProps {
   setRoute: (route: { latitude: number; longitude: number }[]) => void;
 }
@@ -20,19 +25,35 @@ interface ManagePointsProps {
 const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [order, setOrder] = useState<number[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuest, setSelectedQuest] = useState<string>('');
 
   useEffect(() => {
-    const fetchPhotos = async () => {
+    const fetchQuests = async () => {
       try {
-        const response = await axios.get(`${API_URL}/photos`);
-        setPhotos(response.data);
-        setOrder(response.data.map((photo: Photo, index: number) => index));
+        const response = await axios.get(`${API_URL}/quests`);
+        setQuests(response.data);
       } catch (error) {
-        console.error('Error fetching photos:', error);
+        console.error('Error fetching quests:', error);
       }
     };
-    fetchPhotos();
+    fetchQuests();
   }, []);
+
+  useEffect(() => {
+    if (selectedQuest) {
+      const fetchPhotos = async () => {
+        try {
+          const response = await axios.get(`${API_URL}/photos`, { params: { questId: selectedQuest } });
+          setPhotos(response.data);
+          setOrder(response.data.map((photo: Photo, index: number) => index));
+        } catch (error) {
+          console.error('Error fetching photos:', error);
+        }
+      };
+      fetchPhotos();
+    }
+  }, [selectedQuest]);
 
   const reorder = (startIndex: number, endIndex: number) => {
     const result = Array.from(order);
@@ -78,6 +99,19 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
   return (
     <div>
       <h2>Manage Points</h2>
+      <div>
+        <label htmlFor="quest">Select Quest:</label>
+        <select
+          id="quest"
+          value={selectedQuest}
+          onChange={(e) => setSelectedQuest(e.target.value)}
+        >
+          <option value="">Select a quest</option>
+          {quests.map(quest => (
+            <option key={quest._id} value={quest._id}>{quest.name}</option>
+          ))}
+        </select>
+      </div>
       <button onClick={deleteAllPhotos}>Delete All Photos</button>
       <ul>
         {order.map((index, idx) => (

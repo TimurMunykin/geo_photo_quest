@@ -1,0 +1,23 @@
+.quest-management-container {
+  padding: 20px;
+}
+
+.quest-management-container input, .quest-management-container select, .quest-management-container button {
+  margin: 10px 0;
+  padding: 10px;
+}
+
+.quest-management-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.quest-management-container li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.quest-management-container img {
+  margin-right: 10px;
+}

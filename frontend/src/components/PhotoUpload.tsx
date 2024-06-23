@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
@@ -12,17 +12,45 @@ axios.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+interface Quest {
+  _id: string;
+  name: string;
+}
+
 const PhotoUpload: React.FC = () => {
   const [photos, setPhotos] = useState<FileList | null>(null);
   const [message, setMessage] = useState('');
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuestId, setSelectedQuestId] = useState('');
+
+  useEffect(() => {
+    const fetchQuests = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/quests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setQuests(response.data);
+      } catch (error) {
+        console.error('Error fetching quests:', error);
+      }
+    };
+    fetchQuests();
+  }, []);
 
   const handleUpload = async () => {
-    if (!photos) return;
+    if (!photos || !selectedQuestId) {
+      setMessage('Please select photos and a quest.');
+      return;
+    }
 
     const formData = new FormData();
     for (let i = 0; i < photos.length; i++) {
-      formData.append('photos', photos[i]); // Ensure the field name is 'photos'
+      formData.append('photos', photos[i]);
     }
+    formData.append('questId', selectedQuestId);
 
     try {
       const token = localStorage.getItem('token');
@@ -46,6 +74,12 @@ const PhotoUpload: React.FC = () => {
         multiple
         onChange={(e) => setPhotos(e.target.files)}
       />
+      <select onChange={(e) => setSelectedQuestId(e.target.value)} value={selectedQuestId}>
+        <option value="">Select Quest</option>
+        {quests.map((quest) => (
+          <option key={quest._id} value={quest._id}>{quest.name}</option>
+        ))}
+      </select>
       <button onClick={handleUpload}>Upload</button>
       <p>{message}</p>
     </div>
