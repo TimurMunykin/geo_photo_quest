@@ -3,32 +3,22 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Map from './components/Map';
 import Login from './components/Login';
 import Register from './components/Register';
-import NavBar from './components/NavBar';
 import QuestManagement from './components/QuestManagement';
-import QuestSelector from './components/QuestSelector';
+import MainLayout from './components/MainLayout';
 
 const App: React.FC = () => {
-  const [selectedQuestId, setSelectedQuestId] = useState<string>('');
+  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
 
   return (
     <Router>
-      <div>
-        <NavBar />
+      <MainLayout>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route
-            path="/"
-            element={
-              <>
-                <QuestSelector setSelectedQuestId={setSelectedQuestId} />
-                {selectedQuestId && <Map questId={selectedQuestId} />}
-              </>
-            }
-          />
+          <Route path="/" element={<Map route={route} />} />
           <Route path="/quest-management" element={<QuestManagement />} />
         </Routes>
-      </div>
+      </MainLayout>
     </Router>
   );
 };

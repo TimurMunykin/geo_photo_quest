@@ -5,6 +5,7 @@ import axios from 'axios';
 import L, { Control } from 'leaflet';
 import 'leaflet-routing-machine';
 import { API_URL } from '../config';
+import { useNavigate } from 'react-router-dom';
 
 interface Photo {
   _id: string;
@@ -15,8 +16,13 @@ interface Photo {
   };
 }
 
+interface Quest {
+  _id: string;
+  name: string;
+}
+
 interface MapProps {
-  questId: string;
+  route: { latitude: number; longitude: number }[];
 }
 
 const createIcon = (photoPath: string) => {
@@ -55,62 +61,107 @@ const RoutingControl = ({ route }: { route: { latitude: number; longitude: numbe
         waypoints,
         routeWhileDragging: true,
         showAlternatives: false,
-        waypointMode: 'snap',
+        waypointMode: 'snap', // Snap the route to roads
         addWaypoints: false,
         fitSelectedRoutes: true,
         show: false,
       }).addTo(map);
+      // control.current.hide(); there is some issue with styles, because class to hide control is added
     }
   }, [route, map]);
 
-  document.getElementsByClassName('leaflet-control-container')[0]?.remove();
+  // https://gis.stackexchange.com/questions/324016/leaflet-routing-machine-show-option-doesnt-work
+  document.getElementsByClassName('leaflet-control-container')[0]?.remove()
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ questId }) => {
+const Map: React.FC<MapProps> = ({ route }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuest, setSelectedQuest] = useState<string>('');
+  const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (questId) {
+    const fetchQuests = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/quests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setQuests(response.data);
+      } catch (error: any) {
+        console.error('Error fetching quests:', error);
+        if (error.response && error.response.status === 401) {
+          navigate('/login');
+        }
+      }
+    };
+    fetchQuests();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (selectedQuest) {
       const fetchPhotos = async () => {
         try {
           const token = localStorage.getItem('token');
           const response = await axios.get(`${API_URL}/photos`, {
             headers: {
-              Authorization: `Bearer ${token}`
+              'Authorization': `Bearer ${token}`
             },
-            params: { questId }
+            params: { questId: selectedQuest }
           });
-          setPhotos(response.data);
-          const route = response.data.map((photo: Photo) => ({
+          const photosData = response.data;
+          setPhotos(photosData);
+          const routeData = photosData.map((photo: Photo) => ({
             latitude: photo.geolocation.latitude,
             longitude: photo.geolocation.longitude,
           }));
-          setRoute(route);
-        } catch (error) {
+          setQuestRoute(routeData);
+        } catch (error: any) {
           console.error('Error fetching photos:', error);
+          if (error.response && error.response.status === 401) {
+            navigate('/login');
+          }
         }
       };
       fetchPhotos();
     }
-  }, [questId]);
+  }, [selectedQuest, navigate]);
 
   return (
-    <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '80vh', width: '100%' }}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {photos.map(photo => (
-        <Marker
-          key={photo._id}
-          position={[photo.geolocation.latitude, photo.geolocation.longitude]}
-          icon={createIcon(photo.path)}
+    <div className="flex flex-col items-center">
+      <div className="w-full max-w-xs mb-4">
+        <label htmlFor="quest" className="block text-sm font-medium text-gray-700">Select Quest:</label>
+        <select
+          id="quest"
+          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+          value={selectedQuest}
+          onChange={(e) => setSelectedQuest(e.target.value)}
+        >
+          <option value="">Select a quest</option>
+          {quests.map(quest => (
+            <option key={quest._id} value={quest._id}>{quest.name}</option>
+          ))}
+        </select>
+      </div>
+      <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '80vh', width: '100%' }}>
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-      ))}
-      <RoutingControl route={route} />
-    </MapContainer>
+        {photos.map(photo => (
+          <Marker
+            key={photo._id}
+            position={[photo.geolocation.latitude, photo.geolocation.longitude]}
+            icon={createIcon(photo.path)}
+          />
+        ))}
+        <RoutingControl route={questRoute} />
+      </MapContainer>
+    </div>
   );
 };
 
