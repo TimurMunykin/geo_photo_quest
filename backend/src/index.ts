@@ -1,15 +1,16 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import photoRoutes from './routes/photoRoutes';
+import authRoutes from './routes/authRoutes';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 // Enable CORS for all routes
 app.use(cors());
@@ -25,18 +26,13 @@ fs.chmodSync(uploadsDir, 0o755);
 app.use('/uploads', express.static(uploadsDir));
 
 // MongoDB connection
-const mongoURI = process.env.MONGO_URI;
-if (!mongoURI) {
-  throw new Error('MONGO_URI environment variable is not defined.');
-}
-
-mongoose.connect(mongoURI)
-
-.then(() => console.log('MongoDB connected'))
-.catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGO_URI!)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 app.use(express.json());
 app.use('/photos', photoRoutes);
+app.use('/auth', authRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

@@ -34,7 +34,7 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
     fetchPhotos();
   }, []);
 
-  const reorder = async (startIndex: number, endIndex: number) => {
+  const reorder = (startIndex: number, endIndex: number) => {
     const result = Array.from(order);
     const [removed] = result.splice(startIndex, 1);
     result.splice(endIndex, 0, removed);
@@ -46,28 +46,20 @@ const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
       longitude: photo.geolocation.longitude,
     }));
     setRoute(route);
-
-    // Save the new order to the backend
-    await axios.put(`${API_URL}/photos/order`, {
-      order: orderedPhotos.map(photo => photo._id)
-    });
   };
 
   return (
     <div>
       <h2>Manage Points</h2>
-      <div className="points-container">
+      <ul>
         {order.map((index, idx) => (
-          <div key={photos[index]._id} className="point-card">
-            <img src={`${API_URL}/uploads/${photos[index].path}`} alt={photos[index].path} className="point-image"/>
-            <div className="point-info">
-              <p>{idx + 1}. {photos[index].geolocation.longitude.toFixed(5)}, {photos[index].geolocation.latitude.toFixed(5)}</p>
-              <button onClick={() => reorder(idx, idx - 1)} disabled={idx === 0} className="order-button">Up</button>
-              <button onClick={() => reorder(idx, idx + 1)} disabled={idx === order.length - 1} className="order-button">Down</button>
-            </div>
-          </div>
+          <li key={photos[index]._id}>
+            {idx + 1}. {photos[index].geolocation.longitude}, {photos[index].geolocation.latitude} <img src={`${API_URL}/uploads/${photos[index].path}`} alt={photos[index].path} width={50} />
+            <button onClick={() => reorder(idx, idx - 1)} disabled={idx === 0}>Up</button>
+            <button onClick={() => reorder(idx, idx + 1)} disabled={idx === order.length - 1}>Down</button>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   );
 };

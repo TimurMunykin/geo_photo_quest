@@ -1,0 +1,30 @@
+
+[[module]]
+# section without "name" defines defaults for all modules.
+
+# build_run_before = '<this command will be exectuted before each build command>'
+# This could be used to activate an environment, for example: = 'source venv/bin/activate'
+
+# [[module]]
+# Please specify module name for which overrides will be applied, 
+# if there will be no module with a corresponding name, this overrides will make no effect.
+# name = '<module-name>'
+
+# You may override test command here: 
+# build_run_test = ['mvn', '-Dprofile=example', 'test', '-Dtest=%test_name%']
+#   1) alternative format = ['mvn',  '-Dprofile=example', 'compile']
+#   2) the following tokens will be replaced:  
+#       %test_name%   -- identifier of test in code
+#       %test_path%   -- path to test in file system
+#       %report_path% -- expected location of test run report
+
+
+# You may override source/test folders:
+# primary_source_path = '<relative path to source code folder>'
+# primary_test_path = '<relative path to test code root folder>'
+
+# You may override primary test framework here:
+# primary_test_framework = '<pytest, junit, etc>'
+
+# To override setting of another module, just duplicate this section with a different name.
+        

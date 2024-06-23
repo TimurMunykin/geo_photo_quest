@@ -2,39 +2,52 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
-const PhotoUpload: React.FC = () => {
-  const [files, setFiles] = useState<FileList | null>(null);
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setFiles(event.target.files);
-    }
-  };
+const PhotoUpload: React.FC = () => {
+  const [photos, setPhotos] = useState<FileList | null>(null);
+  const [message, setMessage] = useState('');
 
   const handleUpload = async () => {
-    if (files) {
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('photos', files[i]);
-      }
+    if (!photos) return;
 
-      try {
-        const response = await axios.post(`${API_URL}/photos/upload`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        console.log('Photos uploaded successfully:', response.data);
-      } catch (error) {
-        console.error('Error uploading photos:', error);
-      }
+    const formData = new FormData();
+    for (let i = 0; i < photos.length; i++) {
+      formData.append('photos', photos[i]); // Ensure the field name is 'photos'
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/photos/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      setMessage('Photos uploaded successfully');
+    } catch (error) {
+      setMessage('Failed to upload photos');
     }
   };
 
   return (
-    <div>
-      <input type="file" multiple onChange={handleFileChange} />
-      <button onClick={handleUpload}>Upload Photos</button>
+    <div className="photo-upload-container">
+      <h2>Upload Photos</h2>
+      <input
+        type="file"
+        multiple
+        onChange={(e) => setPhotos(e.target.files)}
+      />
+      <button onClick={handleUpload}>Upload</button>
+      <p>{message}</p>
     </div>
   );
 };

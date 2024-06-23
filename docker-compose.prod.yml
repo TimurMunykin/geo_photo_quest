@@ -22,7 +22,8 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - MONGO_URI=mongodb://db:27017/photoQuest
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
 
   frontend:
@@ -33,7 +34,7 @@ services:
       - frontend_build:/frontend_build
     environment:
       - NODE_ENV=production
-    command: ["sh", "-c", "cp -r /app/build/* /frontend_build"]
+    command: [ "sh", "-c", "cp -r /app/build/* /frontend_build" ]
 
   db:
     image: mongo
@@ -50,7 +51,8 @@ services:
       - ./telegram-bot-service:/app
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - MONGO_URI=mongodb://db:27017/photoQuest
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
       - NODE_ENV=production
     depends_on:
       - db
