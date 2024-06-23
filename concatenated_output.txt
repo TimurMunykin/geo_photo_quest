@@ -1,0 +1,2614 @@
+===== /home/crazytimon/repos/geo_photo_quest/docker-compose.prod.yml =====
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/certs:/etc/nginx/certs
+      - frontend_build:/usr/share/nginx/html
+    depends_on:
+      - backend
+      - frontend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - REACT_APP_API_URL=${HOST}/${API_PREFIX}
+    volumes:
+      - frontend_build:/frontend_build
+    environment:
+      - NODE_ENV=production
+    command: [ "sh", "-c", "cp -r /app/build/* /frontend_build" ]
+
+  db:
+    image: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./telegram-bot-service:/app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+    depends_on:
+      - db
+
+volumes:
+  mongo-data:
+  frontend_build:
+
+
+===== /home/crazytimon/repos/geo_photo_quest/nginx/nginx.conf =====
+worker_processes 1;
+
+events { worker_connections 1024; }
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+    keepalive_timeout  65;
+    client_max_body_size 500M;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/nginx/default.conf =====
+server {
+    listen 443 ssl;
+    server_name 767919-cf54261.tmweb.ru;
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    location /api/ {
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass http://backend:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        root /usr/share/nginx/html;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    error_page 497 https://$host$request_uri;
+}
+
+server {
+    listen 80;
+    server_name 767919-cf54261.tmweb.ru;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/.dockerignore =====
+node_modules
+dist
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/src/models/quest.ts =====
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IQuest extends Document {
+  name: string;
+  token: string;
+}
+
+const QuestSchema: Schema<IQuest> = new Schema({
+  name: { type: String, required: true },
+  token: { type: String, required: true, unique: true },
+});
+
+export default mongoose.model<IQuest>('Quest', QuestSchema);
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/src/models/photo.ts =====
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IPhoto extends Document {
+  path: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+  };
+  createdAt: Date;
+  order: number;
+}
+
+const PhotoSchema: Schema = new Schema({
+  path: { type: String, required: true },
+  geolocation: {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true }
+  },
+  createdAt: { type: Date, default: Date.now },
+  order: { type: Number, default: 0 }
+});
+
+export default mongoose.model<IPhoto>('Photo', PhotoSchema);
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/src/config.ts =====
+export const HOST = 'https://767919-cf54261.tmweb.ru/api'
+export const BE_PORT = 3000
+// export const FULL_URL = `${HOST}:${BE_PORT}`
+export const FULL_URL = `${HOST}`
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/src/telegramBot.ts =====
+import TelegramBot from 'node-telegram-bot-api';
+import Photo, { IPhoto } from './models/photo';
+import Quest, { IQuest } from './models/quest';
+import mongoose from 'mongoose';
+import path from 'path';
+import { FULL_URL } from './config';
+
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/photoQuest';
+mongoose.set('strictQuery', true);
+mongoose.connect(mongoURI);
+
+const botToken = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
+const bot = new TelegramBot(botToken, { polling: true });
+
+// In-memory storage for user sessions
+const userSessions: { [key: number]: { questId: string, currentPhotoIndex: number, photos: IPhoto[] } } = {};
+
+// Start command
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /quest <token> to start a specific quest.");
+});
+
+// Select quest command
+bot.onText(/\/quest (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const token = match ? match[1] : null;
+
+  if (!token) {
+    bot.sendMessage(chatId, "Please provide a valid quest token. Usage: /quest <token>");
+    return;
+  }
+
+  try {
+    const quest: IQuest | null = await Quest.findOne({ token });
+    const questlist = await Quest.where();
+    console.log('*questlist',questlist)
+    console.log('*token',token)
+    console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
+    if (!quest) {
+      bot.sendMessage(chatId, "Invalid quest token. Please try again.");
+      return;
+    }
+
+    const photos: IPhoto[] = await Photo.find({ quest: quest._id }).sort({ order: 1 });
+    if (photos.length === 0) {
+      bot.sendMessage(chatId, "No photos available for this quest. Please try another quest.");
+      return;
+    }
+
+    userSessions[chatId] = {
+      questId: quest._id,
+      currentPhotoIndex: 0,
+      photos: photos,
+    };
+
+    bot.sendMessage(chatId, `Quest "${quest.name}" selected. Here is your first photo.`);
+    sendPhoto(chatId);
+  } catch (error: any) {
+      console.error(`Error while selecting quest: ${error.message}`);
+      bot.sendMessage(chatId, "An error occurred while selecting the quest. Please try again later.");
+  }
+});
+
+// Function to send photo
+const sendPhoto = (chatId: number) => {
+  const userProgress = userSessions[chatId];
+  if (!userProgress) {
+    bot.sendMessage(chatId, "No active quest found. Please start a quest by using /quest <token>.");
+    return;
+  }
+
+  const photo = userProgress.photos[userProgress.currentPhotoIndex];
+  const photoPath = path.join(__dirname, '../../uploads', photo.path);
+
+  bot.sendMessage(chatId, `${FULL_URL}/uploads/${photo.path}`);
+  bot.sendPhoto(chatId, `${FULL_URL}/uploads/${photo.path}`, {
+    caption: "Please send your location when you reach this point."
+  });
+
+  bot.once('location', (msg) => {
+    const userLocation = msg.location;
+    if (userLocation) {
+      const { latitude, longitude } = photo.geolocation;
+      const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
+      if (distance < 50) {
+        userProgress.currentPhotoIndex += 1;
+        if (userProgress.currentPhotoIndex < userProgress.photos.length) {
+          bot.sendMessage(chatId, "Correct! Here is your next photo.");
+          sendPhoto(chatId);
+        } else {
+          bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
+          delete userSessions[chatId];
+        }
+      } else {
+        bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
+      }
+    }
+  });
+};
+
+// Function to calculate distance between two geolocations
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3;
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) *
+    Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c;
+  return distance;
+};
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/src/index.ts =====
+import dotenv from 'dotenv';
+dotenv.config();
+
+import './telegramBot';
+console.log("Telegram bot service started");
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/Dockerfile =====
+FROM node:20
+
+# Create app directory
+WORKDIR /app
+
+# Install app dependencies
+COPY package*.json ./
+
+RUN npm install
+
+# Bundle app source
+COPY . .
+
+# Install development dependencies
+RUN npm install --only=dev
+
+# Default command
+CMD ["npm", "run", "dev"]
+
+
+===== /home/crazytimon/repos/geo_photo_quest/telegram-bot-service/package.json =====
+{
+  "name": "telegram-bot-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^10.0.0",
+    "mongoose": "^6.0.12",
+    "node-telegram-bot-api": "^0.50.0"
+  },
+  "devDependencies": {
+    "@types/node-telegram-bot-api": "^0.64.7",
+    "nodemon": "^2.0.15",
+    "ts-node": "^10.4.0",
+    "typescript": "^4.4.4"
+  },
+  "author": "",
+  "license": "ISC"
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/.gptignore =====
+notes.txt
+node_modules
+uploads
+.env
+combined_diff.txt
+diff.diff
+.git
+
+===== /home/crazytimon/repos/geo_photo_quest/run.dev.sh =====
+docker compose -f docker-compose.dev.yml up --build -d
+
+
+===== /home/crazytimon/repos/geo_photo_quest/.zencoder/user-config.toml =====
+
+[[module]]
+# section without "name" defines defaults for all modules.
+
+# build_run_before = '<this command will be exectuted before each build command>'
+# This could be used to activate an environment, for example: = 'source venv/bin/activate'
+
+# [[module]]
+# Please specify module name for which overrides will be applied, 
+# if there will be no module with a corresponding name, this overrides will make no effect.
+# name = '<module-name>'
+
+# You may override test command here: 
+# build_run_test = ['mvn', '-Dprofile=example', 'test', '-Dtest=%test_name%']
+#   1) alternative format = ['mvn',  '-Dprofile=example', 'compile']
+#   2) the following tokens will be replaced:  
+#       %test_name%   -- identifier of test in code
+#       %test_path%   -- path to test in file system
+#       %report_path% -- expected location of test run report
+
+
+# You may override source/test folders:
+# primary_source_path = '<relative path to source code folder>'
+# primary_test_path = '<relative path to test code root folder>'
+
+# You may override primary test framework here:
+# primary_test_framework = '<pytest, junit, etc>'
+
+# To override setting of another module, just duplicate this section with a different name.
+        
+
+===== /home/crazytimon/repos/geo_photo_quest/tree.txt =====
+.
+├── backend
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── .env_template
+│   ├── .gitignore
+│   ├── package.json
+│   ├── src
+│   │   ├── controllers
+│   │   │   ├── authController.ts
+│   │   │   ├── photoController.ts
+│   │   │   └── questController.ts
+│   │   ├── index.ts
+│   │   ├── middleware
+│   │   │   └── authMiddleware.ts
+│   │   ├── models
+│   │   │   ├── photo.ts
+│   │   │   ├── quest.ts
+│   │   │   └── user.ts
+│   │   ├── routes
+│   │   │   ├── authRoutes.ts
+│   │   │   ├── photoRoutes.ts
+│   │   │   └── questRoutes.ts
+│   │   ├── services
+│   │   │   ├── geolocationService.ts
+│   │   │   └── routeService.ts
+│   │   └── types
+│   │       └── express
+│   │           └── index.d.ts
+│   └── tsconfig.json
+├── combined_diff.txt
+├── diff.diff
+├── docker-compose.dev.yml
+├── docker-compose-fe.yml
+├── docker-compose.prod.yml
+├── .env_template
+├── frontend
+│   ├── Dockerfile.dev
+│   ├── Dockerfile.prod
+│   ├── .dockerignore
+│   ├── .gitignore
+│   ├── package.json
+│   ├── README.md
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.test.tsx
+│   │   ├── App.tsx
+│   │   ├── components
+│   │   │   ├── CreateQuest.tsx
+│   │   │   ├── Login.css
+│   │   │   ├── Login.tsx
+│   │   │   ├── ManagePoints.css
+│   │   │   ├── ManagePoints.tsx
+│   │   │   ├── Map.tsx
+│   │   │   ├── NavBar.css
+│   │   │   ├── NavBar.tsx
+│   │   │   ├── PhotoUpload.tsx
+│   │   │   ├── QuestManagement.css
+│   │   │   ├── QuestManagement.tsx
+│   │   │   ├── Register.css
+│   │   │   └── Register.tsx
+│   │   ├── config.ts
+│   │   ├── index.css
+│   │   ├── index.tsx
+│   │   ├── logo.svg
+│   │   ├── react-app-env.d.ts
+│   │   ├── reportWebVitals.ts
+│   │   └── setupTests.ts
+│   └── tsconfig.json
+├── get_diff_for_gpt.sh
+├── .github
+│   └── workflows
+│       └── main.yml
+├── .gitignore
+├── gpt_get_tree.sh
+├── .gptignore
+├── index.html
+├── LICENSE
+├── nginx
+│   ├── default.conf
+│   ├── .gitignore
+│   └── nginx.conf
+├── run.dev.sh
+├── run_only_fe.sh
+├── run.sh
+├── telegram-bot-service
+│   ├── Dockerfile
+│   ├── .dockerignore
+│   ├── .gitignore
+│   ├── package.json
+│   ├── src
+│   │   ├── config.ts
+│   │   ├── index.ts
+│   │   ├── models
+│   │   │   ├── photo.ts
+│   │   │   └── quest.ts
+│   │   └── telegramBot.ts
+│   └── tsconfig.json
+└── tree.txt
+
+18 directories, 80 files
+
+
+===== /home/crazytimon/repos/geo_photo_quest/docker-compose-fe.yml =====
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./frontend:/app
+
+
+===== /home/crazytimon/repos/geo_photo_quest/combined_diff.txt =====
+# Start of docker-compose.prod.yml
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - '443:443'
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/certs:/etc/nginx/certs
+      - frontend_build:/usr/share/nginx/html
+    depends_on:
+      - backend
+      - frontend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend:/app
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - REACT_APP_API_URL=${HOST}/${API_PREFIX}
+    volumes:
+      - frontend_build:/frontend_build
+    environment:
+      - NODE_ENV=production
+    command: [ "sh", "-c", "cp -r /app/build/* /frontend_build" ]
+
+  db:
+    image: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./telegram-bot-service:/app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - NODE_ENV=production
+    depends_on:
+      - db
+
+volumes:
+  mongo-data:
+  frontend_build:
+
+# End of docker-compose.prod.yml
+
+# Start of frontend/Dockerfile.prod
+# Base image for building the app
+FROM node:14 as build
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source files
+COPY . .
+
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+
+# Build the app
+RUN npm run build
+
+# End of frontend/Dockerfile.prod
+
+# Start of run.dev.sh
+docker compose -f docker-compose.dev.yml up --build -d
+
+# End of run.dev.sh
+
+
+
+===== /home/crazytimon/repos/geo_photo_quest/LICENSE =====
+MIT License
+
+Copyright (c) 2024 TimurMunykin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+===== /home/crazytimon/repos/geo_photo_quest/index.html =====
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Quest</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body>
+    <h1>Photo Quest</h1>
+    <button id="authorize-button">Authorize</button>
+    <div id="content"></div>
+    <script>
+        const CLIENT_ID = 'YOUR_CLIENT_ID';
+        const API_KEY = 'YOUR_API_KEY';
+        const DISCOVERY_DOCS = ["https://photoslibrary.googleapis.com/$discovery/rest?version=v1"];
+        const SCOPES = "https://www.googleapis.com/auth/photoslibrary.readonly";
+
+        function handleClientLoad() {
+            gapi.load('client:auth2', initClient);
+        }
+
+        function initClient() {
+            gapi.client.init({
+                apiKey: API_KEY,
+                clientId: CLIENT_ID,
+                discoveryDocs: DISCOVERY_DOCS,
+                scope: SCOPES
+            }).then(() => {
+                document.getElementById('authorize-button').onclick = handleAuthClick;
+            });
+        }
+
+        function handleAuthClick(event) {
+            gapi.auth2.getAuthInstance().signIn().then(() => {
+                listPhotos();
+            });
+        }
+
+        function listPhotos() {
+            gapi.client.photoslibrary.mediaItems.list({
+                pageSize: 10
+            }).then(response => {
+                const photos = response.result.mediaItems;
+                const contentDiv = document.getElementById('content');
+                photos.forEach(photo => {
+                    const img = document.createElement('img');
+                    img.src = photo.baseUrl;
+                    img.style.width = '200px';
+                    contentDiv.appendChild(img);
+                });
+            });
+        }
+
+        document.onload = handleClientLoad();
+    </script>
+</body>
+</html>
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/tsconfig.json =====
+{
+    "compilerOptions": {
+      "target": "ES6",
+      "module": "commonjs",
+      "strict": true,
+      "esModuleInterop": true,
+      "outDir": "./dist",
+      "rootDir": "./src",
+      "skipLibCheck": true, //???
+      "forceConsistentCasingInFileNames": true, //???
+      "resolveJsonModule": true,
+      "typeRoots": [ //???
+        "./src/types",
+        "./node_modules/@types"
+      ]
+    },
+    // "include": ["src/**/*.ts"],
+    "include": [
+      "src"
+    ],
+    "exclude": ["node_modules"]
+  }
+
+
+  // {
+  //   "compilerOptions": {
+  //     "target": "ES6",
+  //     "module": "commonjs",
+  //     "outDir": "./dist",
+  //     "rootDir": "./src",
+  //     "strict": true,
+  //     "esModuleInterop": true,
+  //     "skipLibCheck": true,
+  //     "forceConsistentCasingInFileNames": true,
+  //     "typeRoots": [
+  //       "./src/types",
+  //       "./node_modules/@types"
+  //     ]
+  //   },
+  //   "include": [
+  //     "src"
+  //   ]
+  // }
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/.dockerignore =====
+node_modules
+dist
+uploads
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/middleware/authMiddleware.ts =====
+import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import User, { IUser } from '../models/user';
+
+const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized' });
+  }
+
+  try {
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).send({ message: 'Unauthorized' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    res.status(401).send({ message: 'Unauthorized' });
+  }
+};
+
+export default authMiddleware;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/models/quest.ts =====
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IQuest extends Document {
+  name: string;
+  token: string;
+}
+
+const QuestSchema: Schema<IQuest> = new Schema({
+  name: { type: String, required: true },
+  token: { type: String, required: true, unique: true },
+});
+
+export default mongoose.model<IQuest>('Quest', QuestSchema);
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/models/photo.ts =====
+import mongoose, { Schema, Document } from 'mongoose';
+
+export interface IPhoto extends Document {
+  path: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+  };
+  createdAt: Date;
+  user: mongoose.Schema.Types.ObjectId;
+  quest: mongoose.Schema.Types.ObjectId; // Add this line
+}
+
+const PhotoSchema: Schema = new Schema({
+  path: { type: String, required: true },
+  geolocation: {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true }
+  },
+  createdAt: { type: Date, default: Date.now },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  quest: { type: mongoose.Schema.Types.ObjectId, ref: 'Quest', required: true } // Add this line
+});
+
+export default mongoose.model<IPhoto>('Photo', PhotoSchema);
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/models/user.ts =====
+import mongoose, { Schema, Document } from 'mongoose';
+import bcrypt from 'bcrypt';
+
+export interface IUser extends Document {
+  username: string;
+  password: string;
+  comparePassword: (password: string) => Promise<boolean>;
+}
+
+const UserSchema: Schema<IUser> = new Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true }
+});
+
+UserSchema.pre<IUser>('save', async function (next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  console.log('Generated hash:', `${this.username} --- ${this.password}`); // Add this line to verify the hash
+  next();
+});
+
+UserSchema.methods.comparePassword = function (password: string) {
+  return bcrypt.compare(password, this.password);
+};
+
+export default mongoose.model<IUser>('User', UserSchema);
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/types/express/index.d.ts =====
+import { IUser } from '../../models/user';
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: IUser;
+    }
+  }
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/routes/authRoutes.ts =====
+import { Router } from 'express';
+import { register, login } from '../controllers/authController';
+
+const router = Router();
+
+router.post('/register', register);
+router.post('/login', login);
+
+export default router;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/routes/photoRoutes.ts =====
+import { Router } from 'express';
+import { uploadPhotos, getPhotos, resetPhotos, createRoute, updatePhotoOrder, deletePhoto } from '../controllers/photoController';
+import multer from 'multer';
+import path from 'path';
+import authMiddleware from '../middleware/authMiddleware';
+
+const router = Router();
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../uploads'));
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
+});
+
+const upload = multer({ storage });
+
+router.post('/upload', authMiddleware, upload.array('photos'), uploadPhotos);
+router.get('/', authMiddleware, getPhotos);
+router.delete('/reset', authMiddleware, resetPhotos);
+router.delete('/:id', authMiddleware, deletePhoto);
+router.get('/route', authMiddleware, createRoute);
+router.put('/order', authMiddleware, updatePhotoOrder);
+
+export default router;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/routes/questRoutes.ts =====
+import { Router } from 'express';
+import { createQuest, getQuests, deleteQuest } from '../controllers/questController';
+import authMiddleware from '../middleware/authMiddleware';
+
+const router = Router();
+
+router.post('/', authMiddleware, createQuest);
+router.delete('/:id', authMiddleware, deleteQuest);
+router.get('/', authMiddleware, getQuests);
+
+export default router;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/controllers/questController.ts =====
+import { Request, Response } from 'express';
+import Quest from '../models/quest';
+import crypto from 'crypto';
+
+// Function to generate a unique token
+const generateToken = () => {
+  return crypto.randomBytes(16).toString('hex');
+};
+
+export const createQuest = async (req: Request, res: Response) => {
+  const { name } = req.body;
+
+  try {
+    const token = generateToken();
+    const quest = new Quest({ name, token });
+    await quest.save();
+
+    res.status(201).send(quest);
+  } catch (error) {
+    console.error('Error creating quest:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const getQuests = async (req: Request, res: Response) => {
+  try {
+    const quests = await Quest.find();
+    res.status(200).send(quests);
+  } catch (error) {
+    console.error('Error fetching quests:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const deleteQuest = async (req: Request, res: Response) => {
+  try {
+    const questId = req.params.id;
+    await Quest.findOneAndDelete({ _id: questId });
+    res.status(200).send({ message: 'Quest deleted' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/controllers/authController.ts =====
+import { Request, Response } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import User, { IUser } from '../models/user';
+
+export const register = async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  try {
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).send({ message: 'User already exists' });
+    }
+
+    // const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ username, password: password });
+    await user.save();
+
+    res.status(201).send({ message: 'User registered successfully' });
+  } catch (error) {
+    res.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+export const login = async (req: Request, res: Response) => {
+  const { username, password } = req.body;
+
+  try {
+    const user = await User.findOne({ username });
+    console.log('User:', user);
+    if (!user) {
+      return res.status(400).send({ message: 'User not found' });
+    }
+
+    console.log('Plaintext password:', `${username} --- ${password}`);
+    console.log('Stored hash:', user.password);
+
+    // const regenerated = await bcrypt.hash(password, 10)
+
+    // console.log('!regenerated password:', regenerated);
+
+    const isMatch = await user.comparePassword(password);
+    console.log('Password match:', isMatch);
+    if (!isMatch) {
+      return res.status(400).send({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+
+    res.send({ token });
+  } catch (error) {
+    res.status(500).send({ message: 'Internal server error' });
+  }
+};
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/controllers/photoController.ts =====
+import { Request, Response } from 'express';
+import { extractGeolocation } from '../services/geolocationService';
+import Photo from '../models/photo';
+import { IUser } from '../models/user';
+import Quest from '../models/quest';
+import mongoose from 'mongoose';
+
+export const uploadPhotos = async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    const { questId } = req.body;
+    const userId = req.user?._id;
+
+    const quest = await Quest.findById(questId);
+    if (!quest) {
+      return res.status(400).send({ message: 'Invalid quest ID' });
+    }
+
+    const photoPromises = files.map(async (file, index) => {
+      const photoPath = file.filename;
+      const geolocation = await extractGeolocation(file.path);
+      const photo = new Photo({ path: photoPath, geolocation, user: userId, quest: questId, order: index });
+      return await photo.save();
+    });
+
+    const photos = await Promise.all(photoPromises);
+    res.status(201).send(photos);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+export const getPhotos = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const { questId } = req.query;
+    const photos = await Photo.find({ user: userId, quest: questId });
+    res.status(200).send(photos);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+export const deletePhoto = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const photoId = req.params.id;
+    await Photo.findOneAndDelete({ _id: photoId, user: userId });
+    res.status(200).send({ message: 'Photo deleted' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+export const resetPhotos = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    await Photo.deleteMany({ user: userId });
+    res.status(200).send({ message: 'All photos deleted' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+export const createRoute = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const photos = await Photo.find({ user: userId }).sort({ createdAt: 1 });
+    const route = photos.map(photo => ({
+      latitude: photo.geolocation.latitude,
+      longitude: photo.geolocation.longitude,
+    }));
+    res.status(200).send(route);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+export const updatePhotoOrder = async (req: Request, res: Response) => {
+  const { order } = req.body;
+  const userId = req.user?._id;
+
+  try {
+    for (const [index, photoId] of order.entries()) {
+      await Photo.findOneAndUpdate({ _id: photoId, user: userId }, { order: index });
+    }
+    res.status(200).send({ message: 'Photo order updated' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/services/geolocationService.ts =====
+import {ExifParserFactory, ExifTags} from "ts-exif-parser";
+import fs from 'fs';
+
+export const extractGeolocation = (filePath: string): Promise<{ latitude: number, longitude: number }> => {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        return reject(err);
+      }
+      const parser = ExifParserFactory.create(data);
+      const Data = ExifParserFactory.create(data).parse();
+      const { GPSLatitude, GPSLongitude } = Data.tags as ExifTags;
+
+      if (GPSLatitude && GPSLongitude) {
+        resolve({ latitude: GPSLatitude, longitude: GPSLongitude });
+      } else {
+        reject(new Error('Geolocation data not found'));
+      }
+    });
+  });
+};
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/services/routeService.ts =====
+import Photo, { IPhoto } from '../models/photo';
+import OpenAI from 'openai';
+
+export const generateRoute = async (): Promise<{ latitude: number; longitude: number }[]> => {
+  const photos: IPhoto[] = await Photo.find({}).sort({ order: 1 });
+  const route = photos.map(photo => ({
+    latitude: photo.geolocation.latitude,
+    longitude: photo.geolocation.longitude,
+  }));
+  return route;
+};
+
+
+// export const generateRoute = async (photos: IPhoto[]): Promise<any> => {
+//   const openai = new OpenAI({
+//       // apiKey: process.env[''],
+//       apiKey: '',
+//   });
+//   const locations = photos.map(photo => ({
+//     latitude: photo.geolocation.latitude,
+//     longitude: photo.geolocation.longitude
+//   }));
+
+
+//   // console.log(JSON.stringify(locations))
+//   // return null
+
+//   const completion = await openai.chat.completions.create({
+//     messages: [{ role: "user", content: `Create a route from these locations: ${JSON.stringify(locations)}` }],
+//     // model: "gpt-4o",
+//     model: "gpt-3.5-turbo-0125",
+//   });
+
+//   console.log(`Create a route from these locations: ${JSON.stringify(locations)}`)
+//   console.log(completion.choices[0])
+//   return completion.choices[0];
+// };
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/src/index.ts =====
+import express from 'express';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import photoRoutes from './routes/photoRoutes';
+import authRoutes from './routes/authRoutes';
+import questRoutes from './routes/questRoutes'; // Add this line
+import fs from 'fs';
+import path from 'path';
+import cors from 'cors';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Enable CORS for all routes
+app.use(cors());
+
+// Ensure uploads directory exists and has correct permissions
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+fs.chmodSync(uploadsDir, 0o755);
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(uploadsDir));
+
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URI!)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+app.use(express.json());
+app.use('/photos', photoRoutes);
+app.use('/auth', authRoutes);
+app.use('/quests', questRoutes);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/Dockerfile =====
+# Use official Node.js image
+FROM node:20
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start the server
+CMD ["npm", "run", "dev"]
+
+
+===== /home/crazytimon/repos/geo_photo_quest/backend/package.json =====
+{
+  "name": "photo_quest",
+  "version": "1.0.0",
+  "description": "Photo Location Quest",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exif-parser": "^0.1.12",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^4.51.0",
+    "ts-exif-parser": "^0.2.2"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  }
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src"
+  ]
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/Dockerfile.prod =====
+# Base image for building the app
+FROM node:14 as build
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source files
+COPY . .
+
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+
+# Build the app
+RUN npm run build
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/.dockerignore =====
+node_modules
+dist
+uploads
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/index.tsx =====
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/ManagePoints.tsx =====
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config';
+import './ManagePoints.css';
+
+interface Photo {
+  _id: string;
+  path: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+  };
+  createdAt: string;
+}
+
+interface Quest {
+  _id: string;
+  name: string;
+}
+
+interface ManagePointsProps {
+  setRoute: (route: { latitude: number; longitude: number }[]) => void;
+}
+
+const ManagePoints: React.FC<ManagePointsProps> = ({ setRoute }) => {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [order, setOrder] = useState<number[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuest, setSelectedQuest] = useState<string>('');
+
+  useEffect(() => {
+    const fetchQuests = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/quests`);
+        setQuests(response.data);
+      } catch (error) {
+        console.error('Error fetching quests:', error);
+      }
+    };
+    fetchQuests();
+  }, []);
+
+  useEffect(() => {
+    if (selectedQuest) {
+      const fetchPhotos = async () => {
+        try {
+          const response = await axios.get(`${API_URL}/photos`, { params: { questId: selectedQuest } });
+          setPhotos(response.data);
+          setOrder(response.data.map((photo: Photo, index: number) => index));
+        } catch (error) {
+          console.error('Error fetching photos:', error);
+        }
+      };
+      fetchPhotos();
+    }
+  }, [selectedQuest]);
+
+  const reorder = (startIndex: number, endIndex: number) => {
+    const result = Array.from(order);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    setOrder(result);
+
+    const orderedPhotos = result.map(index => photos[index]);
+    const route = orderedPhotos.map(photo => ({
+      latitude: photo.geolocation.latitude,
+      longitude: photo.geolocation.longitude,
+    }));
+    setRoute(route);
+  };
+
+  const deletePhoto = async (photoId: string) => {
+    try {
+      await axios.delete(`${API_URL}/photos/${photoId}`);
+      const updatedPhotos = photos.filter(photo => photo._id !== photoId);
+      setPhotos(updatedPhotos);
+      setOrder(updatedPhotos.map((_, index) => index));
+      const route = updatedPhotos.map(photo => ({
+        latitude: photo.geolocation.latitude,
+        longitude: photo.geolocation.longitude,
+      }));
+      setRoute(route);
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
+  };
+
+  const deleteAllPhotos = async () => {
+    try {
+      await axios.delete(`${API_URL}/photos/reset`);
+      setPhotos([]);
+      setOrder([]);
+      setRoute([]);
+    } catch (error) {
+      console.error('Error deleting all photos:', error);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Manage Points</h2>
+      <div>
+        <label htmlFor="quest">Select Quest:</label>
+        <select
+          id="quest"
+          value={selectedQuest}
+          onChange={(e) => setSelectedQuest(e.target.value)}
+        >
+          <option value="">Select a quest</option>
+          {quests.map(quest => (
+            <option key={quest._id} value={quest._id}>{quest.name}</option>
+          ))}
+        </select>
+      </div>
+      <button onClick={deleteAllPhotos}>Delete All Photos</button>
+      <ul>
+        {order.map((index, idx) => (
+          <li key={photos[index]._id}>
+            {idx + 1}. {photos[index].geolocation.longitude}, {photos[index].geolocation.latitude}
+            <img src={`${API_URL}/uploads/${photos[index].path}`} alt={photos[index].path} width={50} />
+            <button onClick={() => reorder(idx, idx - 1)} disabled={idx === 0}>Up</button>
+            <button onClick={() => reorder(idx, idx + 1)} disabled={idx === order.length - 1}>Down</button>
+            <button onClick={() => deletePhoto(photos[index]._id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default ManagePoints;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/Register.css =====
+.register-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.register-container input {
+  margin: 10px 0;
+  padding: 10px;
+  width: 200px;
+}
+
+.register-container button {
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.register-container p {
+  margin-top: 10px;
+  color: red;
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/CreateQuest.tsx =====
+import React, { useState } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config';
+
+const CreateQuest: React.FC = () => {
+  const [name, setName] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleCreateQuest = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/quests`, { name }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setMessage(`Quest created with ID: ${response.data._id}`);
+    } catch (error) {
+      setMessage('Failed to create quest');
+    }
+  };
+
+  return (
+    <div className="create-quest-container">
+      <h2>Create Quest</h2>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Quest Name"
+      />
+      <button onClick={handleCreateQuest}>Create Quest</button>
+      <p>{message}</p>
+    </div>
+  );
+};
+
+export default CreateQuest;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/QuestManagement.tsx =====
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config';
+import './QuestManagement.css';
+
+interface Photo {
+  _id: string;
+  path: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+  };
+  createdAt: string;
+}
+
+interface Quest {
+  _id: string;
+  name: string;
+  token: string;
+}
+
+const QuestManagement: React.FC = () => {
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuestId, setSelectedQuestId] = useState<string>('');
+  const [name, setName] = useState('');
+  const [photos, setPhotos] = useState<FileList | null>(null);
+  const [uploadedPhotos, setUploadedPhotos] = useState<Photo[]>([]);
+  const [order, setOrder] = useState<number[]>([]);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const fetchQuests = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/quests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setQuests(response.data);
+      } catch (error) {
+        console.error('Error fetching quests:', error);
+      }
+    };
+    fetchQuests();
+  }, []);
+
+  useEffect(() => {
+    if (selectedQuestId) {
+      const fetchPhotos = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.get(`${API_URL}/photos`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            params: {
+              questId: selectedQuestId
+            }
+          });
+          setUploadedPhotos(response.data);
+          setOrder(response.data.map((photo: Photo, index: number) => index));
+        } catch (error) {
+          console.error('Error fetching photos:', error);
+        }
+      };
+      fetchPhotos();
+    } else {
+      setUploadedPhotos([]);
+      setOrder([]);
+    }
+  }, [selectedQuestId]);
+
+  const handleCreateQuest = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_URL}/quests`, { name }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setQuests([...quests, response.data]);
+      setName('');
+      setMessage(`Quest created with ID: ${response.data._id}`);
+    } catch (error) {
+      setMessage('Failed to create quest');
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!photos || !selectedQuestId) {
+      setMessage('Please select photos and a quest.');
+      return;
+    }
+
+    const formData = new FormData();
+    for (let i = 0; i < photos.length; i++) {
+      formData.append('photos', photos[i]);
+    }
+    formData.append('questId', selectedQuestId);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/photos/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      setMessage('Photos uploaded successfully');
+      const response = await axios.get(`${API_URL}/photos`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        params: {
+          questId: selectedQuestId
+        }
+      });
+      setUploadedPhotos(response.data);
+      setOrder(response.data.map((photo: Photo, index: number) => index));
+    } catch (error) {
+      setMessage('Failed to upload photos');
+    }
+  };
+
+  const handleDeleteQuest = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/quests/${selectedQuestId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setQuests(quests.filter(quest => quest._id !== selectedQuestId));
+      setSelectedQuestId('');
+    } catch (error) {
+      console.error('Error deleting quest:', error);
+    }
+  }
+
+  const reorder = (startIndex: number, endIndex: number) => {
+    const result = Array.from(order);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    setOrder(result);
+
+    const orderedPhotos = result.map(index => uploadedPhotos[index]);
+    const route = orderedPhotos.map(photo => ({
+      latitude: photo.geolocation.latitude,
+      longitude: photo.geolocation.longitude,
+    }));
+  };
+
+  const deletePhoto = async (photoId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/photos/${photoId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const updatedPhotos = uploadedPhotos.filter(photo => photo._id !== photoId);
+      setUploadedPhotos(updatedPhotos);
+      setOrder(updatedPhotos.map((_, index) => index));
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+    }
+  };
+
+  const deleteAllPhotos = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/photos/reset`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setUploadedPhotos([]);
+      setOrder([]);
+    } catch (error) {
+      console.error('Error deleting all photos:', error);
+    }
+  };
+
+  const getCurrentQuestToken = () => {
+    const currentQuest = quests.find(quest => quest._id === selectedQuestId);
+    return currentQuest?.token;
+  }
+
+  return (
+    <div className="quest-management-container">
+      <h2>Create Quest</h2>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Quest Name"
+      />
+      <button onClick={handleCreateQuest}>Create Quest</button>
+      <p>{message}</p>
+
+      <h2>Upload Photos</h2>
+      <input
+        type="file"
+        multiple
+        onChange={(e) => setPhotos(e.target.files)}
+      />
+      <select onChange={(e) => setSelectedQuestId(e.target.value)} value={selectedQuestId}>
+        <option value="">Select Quest</option>
+        {quests.map((quest) => (
+          <option key={quest._id} value={quest._id}>{quest.name}</option>
+        ))}
+      </select>
+      {getCurrentQuestToken()}
+      <button onClick={handleDeleteQuest}>Delete Quest</button>
+      <button onClick={handleUpload}>Upload Photos</button>
+      <button onClick={deleteAllPhotos}>Delete All Photos</button>
+
+      <h2>Manage Points</h2>
+      <ul>
+        {order.map((index, idx) => (
+          <li key={uploadedPhotos[index]._id}>
+            {idx + 1}. {uploadedPhotos[index].geolocation.longitude}, {uploadedPhotos[index].geolocation.latitude}
+            <img src={`${API_URL}/uploads/${uploadedPhotos[index].path}`} alt={uploadedPhotos[index].path} width={50} />
+            <button onClick={() => reorder(idx, idx - 1)} disabled={idx === 0}>Up</button>
+            <button onClick={() => reorder(idx, idx + 1)} disabled={idx === order.length - 1}>Down</button>
+            <button onClick={() => deletePhoto(uploadedPhotos[index]._id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default QuestManagement;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/PhotoUpload.tsx =====
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { API_URL } from '../config';
+
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+interface Quest {
+  _id: string;
+  name: string;
+}
+
+const PhotoUpload: React.FC = () => {
+  const [photos, setPhotos] = useState<FileList | null>(null);
+  const [message, setMessage] = useState('');
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [selectedQuestId, setSelectedQuestId] = useState('');
+
+  useEffect(() => {
+    const fetchQuests = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/quests`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setQuests(response.data);
+      } catch (error) {
+        console.error('Error fetching quests:', error);
+      }
+    };
+    fetchQuests();
+  }, []);
+
+  const handleUpload = async () => {
+    if (!photos || !selectedQuestId) {
+      setMessage('Please select photos and a quest.');
+      return;
+    }
+
+    const formData = new FormData();
+    for (let i = 0; i < photos.length; i++) {
+      formData.append('photos', photos[i]);
+    }
+    formData.append('questId', selectedQuestId);
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/photos/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      setMessage('Photos uploaded successfully');
+    } catch (error) {
+      setMessage('Failed to upload photos');
+    }
+  };
+
+  return (
+    <div className="photo-upload-container">
+      <h2>Upload Photos</h2>
+      <input
+        type="file"
+        multiple
+        onChange={(e) => setPhotos(e.target.files)}
+      />
+      <select onChange={(e) => setSelectedQuestId(e.target.value)} value={selectedQuestId}>
+        <option value="">Select Quest</option>
+        {quests.map((quest) => (
+          <option key={quest._id} value={quest._id}>{quest.name}</option>
+        ))}
+      </select>
+      <button onClick={handleUpload}>Upload</button>
+      <p>{message}</p>
+    </div>
+  );
+};
+
+export default PhotoUpload;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/Register.tsx =====
+import React, { useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
+import './Register.css';
+
+const Register: React.FC = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleRegister = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/auth/register`, { username, password });
+      setMessage('Registered successfully');
+      navigate('/login'); // Redirect to the login page
+    } catch (error) {
+      setMessage('Registration failed');
+    }
+  };
+
+  return (
+    <div className="register-container">
+      <h2>Register</h2>
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        placeholder="Username"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      <button onClick={handleRegister}>Register</button>
+      <p>{message}</p>
+    </div>
+  );
+};
+
+export default Register;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/Map.tsx =====
+import React, { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import axios from 'axios';
+import L, { Control } from 'leaflet';
+import 'leaflet-routing-machine';
+import { API_URL } from '../config';
+
+interface Photo {
+  _id: string;
+  path: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
+interface MapProps {
+  route: { latitude: number; longitude: number }[];
+}
+
+const createIcon = (photoPath: string) => {
+  const svgIcon = `
+    <svg width="60" height="60" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <clipPath id="clipCircle">
+          <circle cx="30" cy="30" r="28" fill="#FFFFFF" />
+        </clipPath>
+      </defs>
+      <circle cx="30" cy="30" r="30" fill="#FFFFFF" stroke="#000000" stroke-width="2"/>
+      <image href="${API_URL}/uploads/${photoPath}" x="2" y="2" height="56" width="56" clip-path="url(#clipCircle)" />
+    </svg>
+  `;
+  return L.divIcon({
+    html: svgIcon,
+    className: '',
+    iconSize: [60, 60],
+    iconAnchor: [30, 30]
+  });
+};
+
+const RoutingControl = ({ route }: { route: { latitude: number; longitude: number }[] }) => {
+  const map = useMap();
+  const control = useRef<Control | null>(null);
+
+  useEffect(() => {
+    if (route.length > 1) {
+      if (control.current) {
+        map.removeControl(control.current);
+      }
+
+      const waypoints = route.map(point => L.latLng(point.latitude, point.longitude));
+
+      control.current = L.Routing.control({
+        waypoints,
+        routeWhileDragging: true,
+        showAlternatives: false,
+        waypointMode: 'snap', // Snap the route to roads
+        addWaypoints: false,
+        fitSelectedRoutes: true,
+        show: false,
+      }).addTo(map);
+      // control.current.hide(); there is some issue with styles, because class to hide control is added
+    }
+  }, [route, map]);
+
+  // https://gis.stackexchange.com/questions/324016/leaflet-routing-machine-show-option-doesnt-work
+  document.getElementsByClassName('leaflet-control-container')[0]?.remove()
+  return null;
+};
+
+const Map: React.FC<MapProps> = ({ route }) => {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+
+  useEffect(() => {
+    const fetchPhotos = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/photos`);
+        setPhotos(response.data);
+      } catch (error) {
+        console.error('Error fetching photos:', error);
+      }
+    };
+    fetchPhotos();
+  }, []);
+
+  return (
+    <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '80vh', width: '100%' }}>
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      />
+      {photos.map(photo => (
+        <Marker
+          key={photo._id}
+          position={[photo.geolocation.latitude, photo.geolocation.longitude]}
+          icon={createIcon(photo.path)}
+        />
+      ))}
+      <RoutingControl route={route} />
+    </MapContainer>
+  );
+};
+
+export default Map;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/QuestManagement.css =====
+.quest-management-container {
+  padding: 20px;
+}
+
+.quest-management-container input, .quest-management-container select, .quest-management-container button {
+  margin: 10px 0;
+  padding: 10px;
+}
+
+.quest-management-container ul {
+  list-style: none;
+  padding: 0;
+}
+
+.quest-management-container li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.quest-management-container img {
+  margin-right: 10px;
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/Login.tsx =====
+import React, { useState } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
+import './Login.css';
+
+const Login: React.FC = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, { username, password });
+      localStorage.setItem('token', response.data.token);
+      setMessage('Logged in successfully');
+      navigate('/');
+    } catch (error) {
+      setMessage('Login failed');
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <h2>Login</h2>
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        placeholder="Username"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+      />
+      <button onClick={handleLogin}>Login</button>
+      <p>{message}</p>
+    </div>
+  );
+};
+
+export default Login;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/ManagePoints.css =====
+.points-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .point-card {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .point-image {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    margin-right: 10px;
+  }
+
+  .point-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .point-info p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .order-button {
+    padding: 5px 10px;
+    font-size: 12px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  .order-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+
+  .order-button:not(:disabled):hover {
+    background-color: #0056b3;
+  }
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/Login.css =====
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.login-container input {
+  margin: 10px 0;
+  padding: 10px;
+  width: 200px;
+}
+
+.login-container button {
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+.login-container p {
+  margin-top: 10px;
+  color: red;
+}
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/NavBar.css =====
+.navbar {
+  display: flex;
+  justify-content: space-around;
+  background-color: #333;
+  padding: 10px;
+}
+
+.navbar a {
+  color: white;
+  text-decoration: none;
+  padding: 14px 20px;
+}
+
+.navbar a:hover {
+  background-color: #ddd;
+  color: black;
+}
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/components/NavBar.tsx =====
+import React from 'react';
+import { Link } from 'react-router-dom';
+import './NavBar.css';
+
+const NavBar: React.FC = () => {
+  return (
+    <nav className="navbar">
+      <Link to="/">Home</Link>
+      <Link to="/manage">Manage Points</Link>
+      <Link to="/quest-management">Quest Management</Link> {/* Add this line */}
+      <Link to="/login">Login</Link>
+      <Link to="/register">Register</Link>
+    </nav>
+  );
+};
+
+export default NavBar;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/config.ts =====
+export const API_URL = process.env.REACT_APP_API_URL
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/logo.svg =====
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 841.9 595.3"><g fill="#61DAFB"><path d="M666.3 296.5c0-32.5-40.7-63.3-103.1-82.4 14.4-63.6 8-114.2-20.2-130.4-6.5-3.8-14.1-5.6-22.4-5.6v22.3c4.6 0 8.3.9 11.4 2.6 13.6 7.8 19.5 37.5 14.9 75.7-1.1 9.4-2.9 19.3-5.1 29.4-19.6-4.8-41-8.5-63.5-10.9-13.5-18.5-27.5-35.3-41.6-50 32.6-30.3 63.2-46.9 84-46.9V78c-27.5 0-63.5 19.6-99.9 53.6-36.4-33.8-72.4-53.2-99.9-53.2v22.3c20.7 0 51.4 16.5 84 46.6-14 14.7-28 31.4-41.3 49.9-22.6 2.4-44 6.1-63.6 11-2.3-10-4-19.7-5.2-29-4.7-38.2 1.1-67.9 14.6-75.8 3-1.8 6.9-2.6 11.5-2.6V78.5c-8.4 0-16 1.8-22.6 5.6-28.1 16.2-34.4 66.7-19.9 130.1-62.2 19.2-102.7 49.9-102.7 82.3 0 32.5 40.7 63.3 103.1 82.4-14.4 63.6-8 114.2 20.2 130.4 6.5 3.8 14.1 5.6 22.5 5.6 27.5 0 63.5-19.6 99.9-53.6 36.4 33.8 72.4 53.2 99.9 53.2 8.4 0 16-1.8 22.6-5.6 28.1-16.2 34.4-66.7 19.9-130.1 62-19.1 102.5-49.9 102.5-82.3zm-130.2-66.7c-3.7 12.9-8.3 26.2-13.5 39.5-4.1-8-8.4-16-13.1-24-4.6-8-9.5-15.8-14.4-23.4 14.2 2.1 27.9 4.7 41 7.9zm-45.8 106.5c-7.8 13.5-15.8 26.3-24.1 38.2-14.9 1.3-30 2-45.2 2-15.1 0-30.2-.7-45-1.9-8.3-11.9-16.4-24.6-24.2-38-7.6-13.1-14.5-26.4-20.8-39.8 6.2-13.4 13.2-26.8 20.7-39.9 7.8-13.5 15.8-26.3 24.1-38.2 14.9-1.3 30-2 45.2-2 15.1 0 30.2.7 45 1.9 8.3 11.9 16.4 24.6 24.2 38 7.6 13.1 14.5 26.4 20.8 39.8-6.3 13.4-13.2 26.8-20.7 39.9zm32.3-13c5.4 13.4 10 26.8 13.8 39.8-13.1 3.2-26.9 5.9-41.2 8 4.9-7.7 9.8-15.6 14.4-23.7 4.6-8 8.9-16.1 13-24.1zM421.2 430c-9.3-9.6-18.6-20.3-27.8-32 9 .4 18.2.7 27.5.7 9.4 0 18.7-.2 27.8-.7-9 11.7-18.3 22.4-27.5 32zm-74.4-58.9c-14.2-2.1-27.9-4.7-41-7.9 3.7-12.9 8.3-26.2 13.5-39.5 4.1 8 8.4 16 13.1 24 4.7 8 9.5 15.8 14.4 23.4zM420.7 163c9.3 9.6 18.6 20.3 27.8 32-9-.4-18.2-.7-27.5-.7-9.4 0-18.7.2-27.8.7 9-11.7 18.3-22.4 27.5-32zm-74 58.9c-4.9 7.7-9.8 15.6-14.4 23.7-4.6 8-8.9 16-13 24-5.4-13.4-10-26.8-13.8-39.8 13.1-3.1 26.9-5.8 41.2-7.9zm-90.5 125.2c-35.4-15.1-58.3-34.9-58.3-50.6 0-15.7 22.9-35.6 58.3-50.6 8.6-3.7 18-7 27.7-10.1 5.7 19.6 13.2 40 22.5 60.9-9.2 20.8-16.6 41.1-22.2 60.6-9.9-3.1-19.3-6.5-28-10.2zM310 490c-13.6-7.8-19.5-37.5-14.9-75.7 1.1-9.4 2.9-19.3 5.1-29.4 19.6 4.8 41 8.5 63.5 10.9 13.5 18.5 27.5 35.3 41.6 50-32.6 30.3-63.2 46.9-84 46.9-4.5-.1-8.3-1-11.3-2.7zm237.2-76.2c4.7 38.2-1.1 67.9-14.6 75.8-3 1.8-6.9 2.6-11.5 2.6-20.7 0-51.4-16.5-84-46.6 14-14.7 28-31.4 41.3-49.9 22.6-2.4 44-6.1 63.6-11 2.3 10.1 4.1 19.8 5.2 29.1zm38.5-66.7c-8.6 3.7-18 7-27.7 10.1-5.7-19.6-13.2-40-22.5-60.9 9.2-20.8 16.6-41.1 22.2-60.6 9.9 3.1 19.3 6.5 28.1 10.2 35.4 15.1 58.3 34.9 58.3 50.6-.1 15.7-23 35.6-58.4 50.6zM320.8 78.4z"/><circle cx="420.9" cy="296.5" r="45.7"/><path d="M520.5 78.1z"/></g></svg>
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/reportWebVitals.ts =====
+import { ReportHandler } from 'web-vitals';
+
+const reportWebVitals = (onPerfEntry?: ReportHandler) => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
+    });
+  }
+};
+
+export default reportWebVitals;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/index.css =====
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/App.tsx =====
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Map from './components/Map';
+import ManagePoints from './components/ManagePoints';
+import Login from './components/Login';
+import Register from './components/Register';
+import NavBar from './components/NavBar';
+import QuestManagement from './components/QuestManagement'; // Add this line
+
+const App: React.FC = () => {
+  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+
+  return (
+    <Router>
+      <div>
+        <NavBar />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/" element={<Map route={route} />} />
+          <Route path="/manage" element={<ManagePoints setRoute={setRoute} />} />
+          <Route path="/quest-management" element={<QuestManagement />} /> {/* Add this line */}
+        </Routes>
+      </div>
+    </Router>
+  );
+};
+
+export default App;
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/setupTests.ts =====
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/App.test.tsx =====
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders learn react link', () => {
+  render(<App />);
+  const linkElement = screen.getByText(/learn react/i);
+  expect(linkElement).toBeInTheDocument();
+});
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/App.css =====
+/* Common styles for all buttons */
+button {
+  padding: 10px 15px;
+  font-size: 14px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin: 5px;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover {
+  background-color: #0056b3;
+}
+
+/* Specific styles for the order buttons */
+.order-button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* Ensure ManagePoints.css has a lower specificity */
+.manage-points-container .order-button {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* Additional styles for layout */
+.App-content {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px;
+}
+
+.Map-container {
+  flex: 1;
+  margin-right: 20px;
+}
+
+.ManagePoints-container {
+  flex: 1;
+  max-width: 300px; /* Adjust as needed */
+  overflow-y: auto;
+}
+
+h1 {
+  font-size: 1.5em;
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/src/react-app-env.d.ts =====
+/// <reference types="react-scripts" />
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/Dockerfile.dev =====
+# Development Dockerfile
+
+# Use a base image with Node.js
+FROM node:14
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Set environment variable
+ENV NODE_ENV=development
+
+# Expose the port the app runs on
+EXPOSE 3000
+
+# Start the development server
+CMD ["npm", "start"]
+
+
+===== /home/crazytimon/repos/geo_photo_quest/frontend/package.json =====
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/leaflet-routing-machine": "^3.2.8",
+    "@types/node": "^16.18.98",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "axios": "^1.7.2",
+    "leaflet": "^1.9.4",
+    "leaflet-routing-machine": "^3.2.12",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1",
+    "react-router-dom": "^6.23.1",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "PORT=5000 react-scripts start",
+    "build": "PORT=5000 react-scripts build",
+    "test": "PORT=5000 react-scripts test",
+    "eject": "PORT=5000 react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.12",
+    "@types/react-leaflet": "^3.0.0",
+    "@types/react-router-dom": "^5.3.3"
+  }
+}
+
+
+===== /home/crazytimon/repos/geo_photo_quest/docker-compose.dev.yml =====
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - '${FE_PORT}:5000'
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=${HOST}:${BE_PORT}
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '${BE_PORT}:3000'
+    volumes:
+      - ./backend:/app
+    environment:
+      - MONGO_URI=mongodb://db:27017/photoQuest
+      - NODE_ENV=development
+
+  db:
+    image: mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  telegram-bot:
+    build:
+      context: ./telegram-bot-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./telegram-bot-service:/app
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MONGO_URI=mongodb://db:27017/photoQuest
+      - NODE_ENV=development
+    depends_on:
+      - db
+
+volumes:
+  mongo-data:
+
+
+===== /home/crazytimon/repos/geo_photo_quest/run.sh =====
+git pull origin master && docker compose -f docker-compose.prod.yml up --build -d --force-recreate
+
+
+===== /home/crazytimon/repos/geo_photo_quest/get_diff_for_gpt.sh =====
+#!/bin/bash
+
+# Get the list of changed files
+changed_files=$(git diff --name-only HEAD^)
+
+# Check if there are any changed files
+if [ -z "$changed_files" ]; then
+  echo "No changed files found."
+  exit 0
+fi
+
+# Create an array to hold the files to process
+files_to_process=()
+
+# Display the changed files and prompt the user to confirm processing
+echo "Changed files:"
+for file in $changed_files; do
+  echo "$file"
+  read -p "Do you want to include $file in the processing? (y/n) " choice
+  case "$choice" in
+    y|Y ) files_to_process+=("$file");;
+    * ) echo "Skipping $file";;
+  esac
+done
+
+# Check if there are any files to process
+if [ ${#files_to_process[@]} -eq 0 ]; then
+  echo "No files to process."
+  exit 0
+fi
+
+# Output file
+output_file="combined_diff.txt"
+
+# Create or empty the output file
+> "$output_file"
+
+# Loop through each file to process
+for file in "${files_to_process[@]}"; do
+  if [ -f "$file" ]; then
+    echo "# Start of $file" >> "$output_file"
+    cat "$file" >> "$output_file"
+    echo -e "\n# End of $file\n" >> "$output_file"
+  fi
+done
+
+echo "Combined file created successfully: $output_file"
+
+
+===== /home/crazytimon/repos/geo_photo_quest/gpt_get_tree.sh =====
+tree -a -I '.zencoder|node_modules|concatenated_output.txt|.git|gpt_get_all_files.sh|uploads|package-lock.json|public|dist|.env|readme.md'
+
+===== /home/crazytimon/repos/geo_photo_quest/run_only_fe.sh =====
+docker compose -f docker-compose.dev.yml up --build frontend -d
+
+

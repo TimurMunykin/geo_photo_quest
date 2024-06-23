@@ -1,0 +1,1 @@
+tree -a -I '.zencoder|node_modules|concatenated_output.txt|.git|gpt_get_all_files.sh|uploads|package-lock.json|public|dist|.env|readme.md'

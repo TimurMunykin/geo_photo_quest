@@ -16,7 +16,7 @@ interface Photo {
 }
 
 interface MapProps {
-  route: { latitude: number; longitude: number }[];
+  questId: string;
 }
 
 const createIcon = (photoPath: string) => {
@@ -55,34 +55,46 @@ const RoutingControl = ({ route }: { route: { latitude: number; longitude: numbe
         waypoints,
         routeWhileDragging: true,
         showAlternatives: false,
-        waypointMode: 'snap', // Snap the route to roads
+        waypointMode: 'snap',
         addWaypoints: false,
         fitSelectedRoutes: true,
         show: false,
       }).addTo(map);
-      // control.current.hide(); there is some issue with styles, because class to hide control is added
     }
   }, [route, map]);
 
-  // https://gis.stackexchange.com/questions/324016/leaflet-routing-machine-show-option-doesnt-work
-  document.getElementsByClassName('leaflet-control-container')[0]?.remove()
+  document.getElementsByClassName('leaflet-control-container')[0]?.remove();
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ route }) => {
+const Map: React.FC<MapProps> = ({ questId }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
 
   useEffect(() => {
-    const fetchPhotos = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/photos`);
-        setPhotos(response.data);
-      } catch (error) {
-        console.error('Error fetching photos:', error);
-      }
-    };
-    fetchPhotos();
-  }, []);
+    if (questId) {
+      const fetchPhotos = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await axios.get(`${API_URL}/photos`, {
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
+            params: { questId }
+          });
+          setPhotos(response.data);
+          const route = response.data.map((photo: Photo) => ({
+            latitude: photo.geolocation.latitude,
+            longitude: photo.geolocation.longitude,
+          }));
+          setRoute(route);
+        } catch (error) {
+          console.error('Error fetching photos:', error);
+        }
+      };
+      fetchPhotos();
+    }
+  }, [questId]);
 
   return (
     <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '80vh', width: '100%' }}>
