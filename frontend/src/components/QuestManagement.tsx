@@ -254,7 +254,7 @@ const QuestManagement: React.FC = () => {
           {order.map((index, idx) => (
             <li key={uploadedPhotos[index]._id} className="flex items-center justify-between p-2 border rounded">
               <div className="flex items-center space-x-4">
-                <span>{idx + 1}. {uploadedPhotos[index].geolocation.longitude}, {uploadedPhotos[index].geolocation.latitude}</span>
+                <span>{idx + 1}. </span>
                 <img src={`${API_URL}/uploads/${uploadedPhotos[index].path}`} alt={uploadedPhotos[index].path} className="w-16 h-16 rounded"/>
               </div>
               <div className="flex items-center space-x-2">

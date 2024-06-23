@@ -1,11 +1,16 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import './MainLayout.css';
 
-interface MainLayoutProps {
-  children: React.ReactNode;
-}
+const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/auth');
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="bg-gray-800 text-white p-4 shadow-md">
@@ -13,11 +18,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <div className="text-lg font-semibold">
             <Link to="/">Geo Photo Quest</Link>
           </div>
-          <nav className="space-x-4">
-            <Link to="/" className="hover:text-gray-300">Home</Link>
-            <Link to="/quest-management" className="hover:text-gray-300">Quest Management</Link>
-            <Link to="/login" className="hover:text-gray-300">Login</Link>
-            <Link to="/register" className="hover:text-gray-300">Register</Link>
+          <nav className="space-x-4 flex items-center">
+            {token ? (
+              <>
+                <Link to="/" className="hover:text-gray-300">Map</Link>
+                <Link to="/quest-management" className="hover:text-gray-300 whitespace-nowrap">Quest Management</Link>
+                <button
+                  onClick={handleLogout}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link to="/auth" className="hover:text-gray-300">Login/Register</Link>
+            )}
           </nav>
         </div>
       </header>
