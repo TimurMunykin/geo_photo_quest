@@ -34,6 +34,7 @@ services:
       - frontend_build:/frontend_build
     environment:
       - NODE_ENV=production
+      - REACT_APP_API_URL=${HOST}/${API_PREFIX}
     command: [ "sh", "-c", "cp -r /app/build/* /frontend_build" ]
 
   db:
