@@ -2,3 +2,5 @@ notes.txt
 node_modules
 uploads
 .env
+combined_diff.txt
+diff.diff

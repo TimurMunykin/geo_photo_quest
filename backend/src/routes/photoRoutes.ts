@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { uploadPhotos, getPhotos, resetPhotos, createRoute, updatePhotoOrder } from '../controllers/photoController';
+import { uploadPhotos, getPhotos, resetPhotos, createRoute, updatePhotoOrder, deletePhoto } from '../controllers/photoController';
 import multer from 'multer';
 import path from 'path';
 import authMiddleware from '../middleware/authMiddleware';
@@ -20,6 +20,7 @@ const upload = multer({ storage });
 router.post('/upload', authMiddleware, upload.array('photos'), uploadPhotos);
 router.get('/', authMiddleware, getPhotos);
 router.delete('/reset', authMiddleware, resetPhotos);
+router.delete('/:id', authMiddleware, deletePhoto);
 router.get('/route', authMiddleware, createRoute);
 router.put('/order', authMiddleware, updatePhotoOrder);
 
