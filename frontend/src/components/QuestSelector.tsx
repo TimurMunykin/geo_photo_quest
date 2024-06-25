@@ -1,50 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
+import { setQuests } from '../redux/questsSlice';
+import { RootState } from '../redux/store';
 import { API_URL } from '../config';
-
-interface Quest {
-  _id: string;
-  name: string;
-}
+import { Select, MenuItem, Box, Typography } from '@mui/material';
 
 interface QuestSelectorProps {
-  setSelectedQuestId: (questId: string) => void;
+  selectedQuestId: string;
+  setSelectedQuestId: (id: string) => void;
 }
 
-const QuestSelector: React.FC<QuestSelectorProps> = ({ setSelectedQuestId }) => {
-  const [quests, setQuests] = useState<Quest[]>([]);
+const QuestSelector: React.FC<QuestSelectorProps> = ({ selectedQuestId, setSelectedQuestId }) => {
+  const dispatch = useDispatch();
+  const quests = useSelector((state: RootState) => state.quests.quests);
 
   useEffect(() => {
     const fetchQuests = async () => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get(`${API_URL}/quests`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        setQuests(response.data);
+        dispatch(setQuests(response.data));
       } catch (error) {
         console.error('Error fetching quests:', error);
       }
     };
     fetchQuests();
-  }, []);
+  }, [dispatch]);
 
   return (
-    <div className="p-4 bg-white rounded shadow-md">
-      <label htmlFor="quest" className="block text-sm font-medium text-gray-700">Select Quest:</label>
-      <select
-        id="quest"
-        className="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-        onChange={(e) => setSelectedQuestId(e.target.value)}
-      >
-        <option value="">Select a quest</option>
-        {quests.map(quest => (
-          <option key={quest._id} value={quest._id}>{quest.name}</option>
+    <Box>
+      <Typography variant="h6">Select a Quest</Typography>
+      <Select value={selectedQuestId} onChange={(e) => setSelectedQuestId(e.target.value as string)} fullWidth>
+        <MenuItem value="">Select a quest</MenuItem>
+        {quests.map((quest) => (
+          <MenuItem key={quest._id} value={quest._id}>
+            {quest.name}
+          </MenuItem>
         ))}
-      </select>
-    </div>
+      </Select>
+    </Box>
   );
 };
 

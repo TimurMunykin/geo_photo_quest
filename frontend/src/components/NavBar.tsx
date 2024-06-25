@@ -1,21 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import './NavBar.css';
+import { AppBar, Toolbar, Button, Typography } from '@mui/material';
 
 const NavBar: React.FC = () => {
   return (
-    <nav className="bg-gray-800 p-4">
-      <div className="container mx-auto flex justify-between items-center">
-        <div className="text-white text-lg font-bold">
-          <Link to="/" className="hover:text-gray-300">Map</Link>
-        </div>
-        <div className="space-x-4">
-          <Link to="/quest-management" className="text-white hover:text-gray-300">Quest Management</Link>
-          <Link to="/login" className="text-white hover:text-gray-300">Login</Link>
-          <Link to="/register" className="text-white hover:text-gray-300">Register</Link>
-        </div>
-      </div>
-    </nav>
+    <AppBar position="static">
+      <Toolbar>
+        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          Photo Quest
+        </Typography>
+        <Button color="inherit" component={Link} to="/">Home</Button>
+        <Button color="inherit" component={Link} to="/manage">Manage Points</Button>
+        <Button color="inherit" component={Link} to="/quest-management">Quest Management</Button>
+        <Button color="inherit" component={Link} to="/login">Login</Button>
+        <Button color="inherit" component={Link} to="/register">Register</Button>
+      </Toolbar>
+    </AppBar>
   );
 };
 
