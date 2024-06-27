@@ -4,7 +4,7 @@
 BASE_DIR=$1
 
 # Define the list of excluded files and directories
-EXCLUDE_LIST=("node_modules" "concatenated_output.txt" ".git" "gpt_get_all_files.sh" "uploads" "package-lock.json" "public" "dist" ".env" "readme.md" "README.md")
+EXCLUDE_LIST=("node_modules" "concatenated_output.txt" ".git" "gpt_get_all_files.sh" "uploads" "package-lock.json" "public" "dist" ".env" "readme.md" "README.md" "prompts")
 
 # Function to check if a file or directory is in the exclude list
 is_excluded() {
