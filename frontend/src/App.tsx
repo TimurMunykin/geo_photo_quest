@@ -5,6 +5,7 @@ import { LocationOn, ZoomIn, ZoomOut, Layers } from "@mui/icons-material";
 import QuestManagement from './components/QuestManagement';
 import MainLayout from './components/MainLayout';
 import Auth from './components/Auth';
+import DebuggerCmp from './components/Debugger';
 
 
 const App: React.FC = () => {
@@ -15,6 +16,7 @@ const App: React.FC = () => {
           <Route path="/auth" element={<Auth />} />
           <Route path="/login" element={<Auth />} />
           <Route path="/quest-management" element={<QuestManagement />} />
+          <Route path="/debugger-cmp" element={<DebuggerCmp />} />
         </Routes>
       </MainLayout>
     </Router>

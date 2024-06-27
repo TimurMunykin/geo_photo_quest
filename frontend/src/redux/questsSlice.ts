@@ -6,8 +6,9 @@ interface Quest {
   token: string;
 }
 
-interface QuestsState {
+export interface QuestsState {
   quests: Quest[];
+  currentQuestId?: string;
 }
 
 const initialState: QuestsState = {
@@ -18,6 +19,9 @@ const questsSlice = createSlice({
   name: 'quests',
   initialState,
   reducers: {
+    setCurrentQuest: (state, action: PayloadAction<string>) => {
+      state.currentQuestId = action.payload;
+    },
     setQuests: (state, action: PayloadAction<Quest[]>) => {
       state.quests = action.payload;
     },
@@ -30,5 +34,5 @@ const questsSlice = createSlice({
   },
 });
 
-export const { setQuests, addQuest, removeQuest } = questsSlice.actions;
+export const { setQuests, addQuest, removeQuest, setCurrentQuest } = questsSlice.actions;
 export default questsSlice.reducer;

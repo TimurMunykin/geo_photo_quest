@@ -8,7 +8,7 @@ import { Select, MenuItem, Box, Typography } from '@mui/material';
 
 interface QuestSelectorProps {
   selectedQuestId: string;
-  setSelectedQuestId: (id: string) => void;
+  setSelectedQuestId?: (id: string) => void;
 }
 
 const QuestSelector: React.FC<QuestSelectorProps> = ({ selectedQuestId, setSelectedQuestId }) => {
@@ -31,17 +31,22 @@ const QuestSelector: React.FC<QuestSelectorProps> = ({ selectedQuestId, setSelec
   }, [dispatch]);
 
   return (
-    <Box>
-      <Typography variant="h6">Select a Quest</Typography>
-      <Select value={selectedQuestId} onChange={(e) => setSelectedQuestId(e.target.value as string)} fullWidth>
-        <MenuItem value="">Select a quest</MenuItem>
-        {quests.map((quest) => (
-          <MenuItem key={quest._id} value={quest._id}>
-            {quest.name}
-          </MenuItem>
-        ))}
-      </Select>
-    </Box>
+    <Select
+      labelId="demo-simple-select-autowidth-label"
+      id="demo-simple-select-autowidth"
+      value={selectedQuestId}
+      onChange={(e) => setSelectedQuestId && setSelectedQuestId(e.target.value as string)}
+      size="small"
+      label="Age"
+      style={{ backgroundColor: "white", marginTop: "8px" }} // Adjust margin as needed
+    >
+      <MenuItem value="">Select a quest</MenuItem>
+          {quests.map((quest) => (
+           <MenuItem key={quest._id} value={quest._id}>
+             {quest.name}
+           </MenuItem>
+         ))}
+    </Select>
   );
 };
 

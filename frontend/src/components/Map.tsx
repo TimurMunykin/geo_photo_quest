@@ -6,6 +6,9 @@ import L, { Control } from 'leaflet';
 import 'leaflet-routing-machine';
 import { API_URL } from '../config';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { QuestsState } from '../redux/questsSlice';
+import { RootState } from '../redux/store';
 
 interface Photo {
   _id: string;
@@ -81,6 +84,7 @@ const Map: React.FC<MapProps> = ({ route }) => {
   const [selectedQuest, setSelectedQuest] = useState<string>('');
   const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
   const navigate = useNavigate();
+  const currentQuest = useSelector<RootState>((state) => state.quests.currentQuestId);
 
   useEffect(() => {
     const fetchQuests = async () => {
@@ -103,7 +107,8 @@ const Map: React.FC<MapProps> = ({ route }) => {
   }, [navigate]);
 
   useEffect(() => {
-    if (selectedQuest) {
+    console.log(currentQuest);
+    if (currentQuest) {
       const fetchPhotos = async () => {
         try {
           const token = localStorage.getItem('token');
@@ -111,7 +116,7 @@ const Map: React.FC<MapProps> = ({ route }) => {
             headers: {
               'Authorization': `Bearer ${token}`
             },
-            params: { questId: selectedQuest }
+            params: { questId: currentQuest }
           });
           const photosData = response.data;
           setPhotos(photosData);
@@ -129,24 +134,10 @@ const Map: React.FC<MapProps> = ({ route }) => {
       };
       fetchPhotos();
     }
-  }, [selectedQuest, navigate]);
+  }, [currentQuest, navigate]);
 
   return (
     <div className="flex flex-col items-center">
-      <div className="absolute  top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
-        <label htmlFor="quest" className="block text-sm font-medium text-gray-700">Select Quest:</label>
-        <select
-          id="quest"
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-          value={selectedQuest}
-          onChange={(e) => setSelectedQuest(e.target.value)}
-        >
-          <option value="">Select a quest</option>
-          {quests.map(quest => (
-            <option key={quest._id} value={quest._id}>{quest.name}</option>
-          ))}
-        </select>
-      </div>
       <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '100vh', width: '100%' }}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
