@@ -29,7 +29,7 @@ const Auth: React.FC = () => {
   };
 
   return (
-    <div className="auth-container">
+    <>
       <div className="tabs">
         <button
           className={`tab ${isLogin ? 'active' : ''}`}
@@ -65,7 +65,7 @@ const Auth: React.FC = () => {
         </button>
         <p className="text-red-500 mt-2">{message}</p>
       </div>
-    </div>
+    </>
   );
 };
 

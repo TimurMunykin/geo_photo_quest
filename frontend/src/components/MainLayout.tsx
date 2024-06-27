@@ -1,44 +1,75 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import './MainLayout.css';
+import React, { useEffect, useState } from "react";
+import {  } from "@mui/material";
+import { LocationOn, ZoomIn, ZoomOut, Layers } from "@mui/icons-material";
+import { useLocation, useNavigate } from 'react-router-dom';
+import Map from './Map';
+import "./MainLayout.css";
+import { IconButton, Dialog, DialogTitle, DialogContent } from '@mui/material';
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const [route, _] = useState<{ latitude: number; longitude: number }[]>([]);
+  const token = localStorage.getItem("token");
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/auth');
+  const navigate = useNavigate();
+
+  const handleOpenDialog = (dialogType: string) => {
+    navigate(`/${dialogType}`);
   };
 
-  return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-gray-800 text-white p-4 shadow-md">
-        <div className="container mx-auto flex justify-between items-center">
-          <div className="text-lg font-semibold">
-            <Link to="/">Geo Photo Quest</Link>
-          </div>
-          <nav className="space-x-4 flex items-center">
-            {token ? (
-              <>
-                <Link to="/" className="hover:text-gray-300">Map</Link>
-                <Link to="/quest-management" className="hover:text-gray-300 whitespace-nowrap">Quest Management</Link>
-                <button
-                  onClick={handleLogout}
-                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <Link to="/auth" className="hover:text-gray-300">Login/Register</Link>
-            )}
-          </nav>
-        </div>
-      </header>
-      <main className="flex-grow container mx-auto p-4">{children}</main>
+  const location = useLocation();
+
+  return (<div className="relative w-screen h-screen">
+    <Map route={route} />
+    <div
+      style={{
+        position: "absolute",
+        bottom: "16px",
+        right: "16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "8px",
+        zIndex: 1000,
+      }}
+    >
+      <IconButton
+        color="primary"
+        aria-label="pin location"
+        style={{ backgroundColor: "white" }}
+        onClick={() => handleOpenDialog("quest-management")}
+      >
+        <LocationOn />
+      </IconButton>
+      <IconButton
+        color="primary"
+        aria-label="zoom in"
+        style={{ backgroundColor: "white" }}
+        onClick={() => handleOpenDialog("auth")}
+      >
+        <ZoomIn />
+      </IconButton>
+      <IconButton
+        color="primary"
+        aria-label="zoom out"
+        style={{ backgroundColor: "white" }}
+      >
+        <ZoomOut />
+      </IconButton>
+      <IconButton
+        color="primary"
+        aria-label="layers"
+        style={{ backgroundColor: "white" }}
+      >
+        <Layers />
+      </IconButton>
+      <Dialog open={location.pathname !== '/'} onClose={() => navigate('/')}>
+        {/* <DialogTitle>Login</DialogTitle> */}
+        <DialogContent>
+          {children}
+        </DialogContent>
+      </Dialog>
+
     </div>
-  );
+  </div>);
 };
 
 export default MainLayout;

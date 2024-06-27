@@ -133,7 +133,7 @@ const Map: React.FC<MapProps> = ({ route }) => {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="w-full max-w-xs mb-4">
+      <div className="absolute  top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
         <label htmlFor="quest" className="block text-sm font-medium text-gray-700">Select Quest:</label>
         <select
           id="quest"
@@ -147,7 +147,7 @@ const Map: React.FC<MapProps> = ({ route }) => {
           ))}
         </select>
       </div>
-      <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '80vh', width: '100%' }}>
+      <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '100vh', width: '100%' }}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
