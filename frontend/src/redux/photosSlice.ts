@@ -1,4 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSelector } from 'reselect';
+import { RootState } from './store';
 
 interface Photo {
   _id: string;
@@ -8,6 +10,7 @@ interface Photo {
     longitude: number;
   };
   createdAt: string;
+  quest: string;
 }
 
 interface PhotosState {
@@ -23,7 +26,12 @@ const photosSlice = createSlice({
   initialState,
   reducers: {
     setPhotos: (state, action: PayloadAction<Photo[]>) => {
-      state.photos = action.payload;
+      const newPhotos = action.payload;
+      const newPhotoIds = newPhotos.map(photo => photo._id);
+      state.photos = [
+        ...state.photos.filter(photo => !newPhotoIds.includes(photo._id)),
+        ...newPhotos,
+      ];
     },
     addPhoto: (state, action: PayloadAction<Photo>) => {
       state.photos.push(action.payload);
@@ -40,6 +48,12 @@ const photosSlice = createSlice({
     },
   },
 });
+
+const selectPhotosState = (state: RootState) => state.photos;
+export const selectPhotosByQuest = (quest: string) =>
+  createSelector([selectPhotosState], (photosState) =>
+    photosState.photos.filter((photo) => photo.quest === quest)
+  );
 
 export const { setPhotos, addPhoto, removePhoto, deleteAllPhotos, reorderPhotos } = photosSlice.actions;
 export default photosSlice.reducer;

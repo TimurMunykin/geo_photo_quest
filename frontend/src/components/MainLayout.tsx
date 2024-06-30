@@ -95,7 +95,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <PestControlIcon />
         </IconButton>
       </div>
-      <Dialog open={location.pathname !== "/"} onClose={() => navigate("/")}>
+      <Dialog fullWidth={true} maxWidth={'md'} open={location.pathname !== "/"} onClose={() => navigate("/")}>
         <DialogContent>{children}</DialogContent>
       </Dialog>
     </div>
