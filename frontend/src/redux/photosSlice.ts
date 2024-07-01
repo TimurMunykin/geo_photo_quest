@@ -5,7 +5,7 @@ import { RootState } from './store';
 interface Photo {
   _id: string;
   path: string;
-  geolocation: {
+  geolocation?: {
     latitude: number;
     longitude: number;
   };

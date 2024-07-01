@@ -15,10 +15,14 @@ export const uploadPhotos = async (req: Request, res: Response) => {
     if (!quest) {
       return res.status(400).send({ message: 'Invalid quest ID' });
     }
-
     const photoPromises = files.map(async (file, index) => {
+      let geolocation = null;
       const photoPath = file.filename;
-      const geolocation = await extractGeolocation(file.path);
+      try {
+        geolocation = await extractGeolocation(file.path);
+      } catch (error: any) {
+        console.warn(`Geolocation extraction failed for file ${file.filename}:`, error.message);
+      }
       const photo = new Photo({ path: photoPath, geolocation, user: userId, quest: questId, order: index });
       return await photo.save();
     });
@@ -70,10 +74,12 @@ export const createRoute = async (req: Request, res: Response) => {
   try {
     const userId = req.user?._id;
     const photos = await Photo.find({ user: userId }).sort({ createdAt: 1 });
-    const route = photos.map(photo => ({
-      latitude: photo.geolocation.latitude,
-      longitude: photo.geolocation.longitude,
-    }));
+    const route = photos
+      .filter(photo => photo.geolocation && photo.geolocation.latitude && photo.geolocation.longitude)
+      .map(photo => ({
+        latitude: photo.geolocation!.latitude,
+        longitude: photo.geolocation!.longitude,
+      }));
     res.status(200).send(route);
   } catch (error) {
     console.error('Error:', error);
