@@ -9,7 +9,7 @@ import { useDispatch, useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
 import { API_URL } from "../config";
-import { selectPhotosByQuest, setPhotos } from "../redux/photosSlice";
+import { removePhoto, selectPhotosByQuest, setPhotos } from "../redux/photosSlice";
 import { Quest } from "../redux/questsSlice";
 import { useState } from "react";
 
@@ -41,6 +41,17 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
       console.error('Failed to upload photos', error);
     }
   };
+  const handleDeletePhoto = async (photoId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/photos/${photoId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      dispatch(removePhoto(photoId));
+    } catch (error) {
+      console.error('Failed to delete photo', error);
+    }
+  }
 
   return (
     <>
@@ -74,6 +85,7 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
               variant="contained"
               color="error"
               startIcon={<DeleteIcon />}
+              onClick={() => handleDeletePhoto(item._id)}
             >
               Delete
             </Button>
