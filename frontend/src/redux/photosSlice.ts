@@ -6,8 +6,8 @@ interface Photo {
   _id: string;
   path: string;
   geolocation?: {
-    latitude: number;
-    longitude: number;
+    latitude?: number;
+    longitude?: number;
   };
   createdAt: string;
   quest: string;
@@ -46,6 +46,20 @@ const photosSlice = createSlice({
       const [removed] = state.photos.splice(action.payload.startIndex, 1);
       state.photos.splice(action.payload.endIndex, 0, removed);
     },
+    updateGeoLocation: (state, action: PayloadAction<{ photoId: string; latitude?: number; longitude?: number }>) => {
+      const photo = state.photos.find(photo => photo._id === action.payload.photoId);
+      if (photo) {
+        if (!photo.geolocation) {
+          photo.geolocation = {};
+        }
+        if (action.payload.latitude !== undefined) {
+          photo.geolocation.latitude = action.payload.latitude;
+        }
+        if (action.payload.longitude !== undefined) {
+          photo.geolocation.longitude = action.payload.longitude;
+        }
+      }
+    }
   },
 });
 
@@ -55,5 +69,5 @@ export const selectPhotosByQuest = (quest: string) =>
     photosState.photos.filter((photo) => photo.quest === quest)
   );
 
-export const { setPhotos, addPhoto, removePhoto, deleteAllPhotos, reorderPhotos } = photosSlice.actions;
+export const { setPhotos, addPhoto, removePhoto, deleteAllPhotos, reorderPhotos, updateGeoLocation } = photosSlice.actions;
 export default photosSlice.reducer;

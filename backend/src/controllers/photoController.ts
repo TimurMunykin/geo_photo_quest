@@ -101,3 +101,43 @@ export const updatePhotoOrder = async (req: Request, res: Response) => {
     res.status(500).send(error);
   }
 };
+
+export const updatePhotoGeolocation = async (req: Request, res: Response) => {
+  const { latitude, longitude } = req.body;
+  const userId = req.user?._id;
+  const photoId = req.params.id;
+
+  try {
+    // Fetch the existing photo to check and initialize geolocation if necessary
+    const photo = await Photo.findOne({ _id: photoId, user: userId });
+
+    if (!photo) {
+      return res.status(404).send({ message: 'Photo not found or not authorized.' });
+    }
+
+    const updateFields: any = {};
+    if (latitude !== undefined) updateFields['geolocation.latitude'] = latitude;
+    if (longitude !== undefined) updateFields['geolocation.longitude'] = longitude;
+
+    // Check if there are fields to update
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).send({ message: 'No geolocation fields provided for update.' });
+    }
+
+    // If geolocation is null, initialize it as an empty object
+    if (!photo.geolocation) {
+      photo.geolocation = {};
+    }
+
+    // Update the geolocation fields
+    if (latitude !== undefined) photo.geolocation.latitude = latitude;
+    if (longitude !== undefined) photo.geolocation.longitude = longitude;
+
+    await photo.save();
+
+    res.status(200).send(photo);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).send(error);
+  }
+};

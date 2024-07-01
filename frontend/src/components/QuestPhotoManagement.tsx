@@ -19,6 +19,7 @@ import {
   removePhoto,
   selectPhotosByQuest,
   setPhotos,
+  updateGeoLocation,
 } from "../redux/photosSlice";
 import { Quest } from "../redux/questsSlice";
 import { useState } from "react";
@@ -68,6 +69,28 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
       console.error("Failed to delete photo", error);
     }
   };
+  const handleUpdateLatitude = async (photoId: string, latitude: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API_URL}/photos/${photoId}/geolocation/`, { latitude }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch(updateGeoLocation({ photoId, latitude: parseFloat(latitude) }));
+    } catch (error) {
+      console.error("Failed to delete photo", error);
+    }
+  };
+  const handleUpdateLongitude = async (photoId: string, longitude: string) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post(`${API_URL}/photos/${photoId}/geolocation/`, { longitude }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch(updateGeoLocation({ photoId, longitude: parseFloat(longitude) }));
+    } catch (error) {
+      console.error("Failed to delete photo", error);
+    }
+  };
 
   return (
     <>
@@ -113,6 +136,7 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
                   label="Latitude"
                   size="small"
                   defaultValue={`${item.geolocation?.latitude || ""}`}
+                  onBlur={(e) => handleUpdateLatitude(item._id, e.currentTarget.value)}
                 />
               </Grid>
               <Grid xs>
@@ -121,6 +145,7 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
                   size="small"
                   defaultValue={`${item.geolocation?.longitude || ""}`}
                   sx={{ ml: "5px" }}
+                  onBlur={(e) => handleUpdateLongitude(item._id, e.currentTarget.value)}
                 />
               </Grid>
               <Grid>
