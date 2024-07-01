@@ -9,6 +9,8 @@ import {
   IconButton,
   ListItem,
   ListItemAvatar,
+  ListItemButton,
+  ListItemIcon,
   ListItemText,
 } from "@mui/material";
 import Button from "@mui/material/Button";
@@ -21,7 +23,8 @@ import { selectPhotosByQuest, setPhotos } from "../redux/photosSlice";
 import { Quest, removeQuest } from "../redux/questsSlice";
 import EditIcon from "@mui/icons-material/Edit";
 import QuestPhotoManagement from "./QuestPhotoManagement";
-import CloseIcon from '@mui/icons-material/Close';
+import CloseIcon from "@mui/icons-material/Close";
+import MapIcon from '@mui/icons-material/Map';
 
 interface QuestItemProps {
   quest: Quest;
@@ -61,57 +64,51 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
     try {
       const token = localStorage.getItem("token");
       await axios.delete(`${API_URL}/quests/${quest._id}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       dispatch(removeQuest(quest._id));
     } catch (error) {
       console.error("Error deleting quest:", error);
     }
-  }
+  };
 
   return (
     <>
-    <ListItem
-      key={quest._id}
-      secondaryAction={
-        <ButtonGroup variant="text" aria-label="Basic button group">
-          <Button startIcon={<EditIcon /> } color="info" onClick={handleClickOpen}></Button>
-          <Button endIcon={<DeleteIcon />} color="error" onClick={handleDeleteClick}></Button>
-          {/* todo: confirmation dialog */}
-        </ButtonGroup>
-      }
-    >
-      <ListItemAvatar>
-        <AvatarGroup>
-          {photos.map((photo) => (
-            <Avatar
-              key={photo._id}
-              alt={photo.path}
-              src={`${API_URL}/uploads/${photo.path}?w=248&fit=crop&auto=format&dpr=2`}
-            />
-          ))}
-        </AvatarGroup>
-      </ListItemAvatar>
-      <ListItemText
-        primary={quest.name}
-        // secondary={quest.token}
-      />
-    </ListItem>
-    <Dialog
+      <ListItemButton onClick={handleClickOpen}>
+        <ListItemAvatar>
+          <AvatarGroup>
+            {photos.map((photo) => (
+              <Avatar
+                key={photo._id}
+                alt={photo.path}
+                src={`${API_URL}/uploads/${photo.path}?w=248&fit=crop&auto=format&dpr=2`}
+              />
+            ))}
+          </AvatarGroup>
+        </ListItemAvatar>
+        <ListItemText
+          primary={quest.name}
+          secondary='Description'
+        />
+        <IconButton color="error" onClick={handleDeleteClick}>
+            <DeleteIcon />
+            {/* todo: confirmation dialog */}
+          </IconButton>
+      </ListItemButton>
+      <Dialog
         open={open}
-        fullWidth={true} maxWidth={'md'}
+        fullWidth={true}
+        maxWidth={"md"}
         onClose={handleClose}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">
-          {quest.name}
-        </DialogTitle>
+        <DialogTitle id="alert-dialog-title">{quest.name}</DialogTitle>
         <IconButton
           aria-label="close"
           onClick={handleClose}
           sx={{
-            position: 'absolute',
+            position: "absolute",
             right: 8,
             top: 8,
             color: (theme) => theme.palette.grey[500],

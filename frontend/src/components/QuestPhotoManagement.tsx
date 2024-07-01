@@ -1,8 +1,12 @@
 import {
   Box,
+  Grid,
+  Icon,
+  IconButton,
   ImageList,
   ImageListItem,
   ImageListItemBar,
+  InputBase,
   LinearProgress,
   TextField,
 } from "@mui/material";
@@ -18,6 +22,7 @@ import {
 } from "../redux/photosSlice";
 import { Quest } from "../redux/questsSlice";
 import { useState } from "react";
+import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 
 interface QuestItemProps {
   quest: Quest;
@@ -90,40 +95,53 @@ const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
             <img
               srcSet={`${API_URL}/uploads/${item.path}?w=248&fit=crop&auto=format&dpr=2 2x`}
               src={`${API_URL}/uploads/${item.path}?w=248&fit=crop&auto=format`}
-              alt={`${API_URL}/uploads/${item.path}`}
-              height={"20px"}
               loading="lazy"
             />
             <ImageListItemBar
               title={
-                <Box sx={{ m: "5px" }}>
-                  <TextField
-                    label="Latitude"
-                    size="small"
-                    defaultValue={`${item.geolocation?.latitude || ""}`}
-                    sx={{
-                      width: "40%",
-                    }}
-                  />
-                  <TextField
-                    label="Longitude"
-                    size="small"
-                    defaultValue={`${item.geolocation?.longitude || ""}`}
-                    sx={{ ml: "5px", width: "40%" }}
-                  />
-                </Box>
+                <InputBase
+                  sx={{ ml: 1, flex: 1 }}
+                  value={item.path}
+                  fullWidth={true}
+                />
               }
-              subtitle={<span>Path: {item.path}</span>}
               position="below"
             />
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => handleDeletePhoto(item._id)}
-            >
-              Delete
-            </Button>
+            <Grid container>
+              <Grid xs>
+                <TextField
+                  label="Latitude"
+                  size="small"
+                  defaultValue={`${item.geolocation?.latitude || ""}`}
+                />
+              </Grid>
+              <Grid xs>
+                <TextField
+                  label="Longitude"
+                  size="small"
+                  defaultValue={`${item.geolocation?.longitude || ""}`}
+                  sx={{ ml: "5px" }}
+                />
+              </Grid>
+              <Grid>
+                <IconButton
+                  color="info"
+                  sx={{ ml: "25%" }}
+                  onClick={() => console.log("Geolocation")}
+                >
+                  <GpsFixedIcon />
+                </IconButton>
+              </Grid>
+              <Grid xs>
+                <IconButton
+                  color="error"
+                  sx={{ ml: "20px" }}
+                  onClick={() => handleDeletePhoto(item._id)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </Grid>
+            </Grid>
           </ImageListItem>
         ))}
       </ImageList>
