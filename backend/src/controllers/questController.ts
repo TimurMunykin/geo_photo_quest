@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import Quest from '../models/quest';
 import crypto from 'crypto';
+import Photo from '../models/photo';
 
 // Function to generate a unique token
 const generateToken = () => {
@@ -40,5 +41,22 @@ export const deleteQuest = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error:', error);
     res.status(500).send(error);
+  }
+};
+
+export const getQuestWithPhotos = async (req: Request, res: Response) => {
+  const questId = req.params.id;
+
+  try {
+    const quest = await Quest.findById(questId);
+    if (!quest) {
+      return res.status(404).send({ message: 'Quest not found' });
+    }
+
+    const photos = await Photo.find({ quest: questId });
+    res.status(200).send({ quest, photos });
+  } catch (error) {
+    console.error('Error fetching quest with photos:', error);
+    res.status(500).send({ message: 'Internal server error' });
   }
 };

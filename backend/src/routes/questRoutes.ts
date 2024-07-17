@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createQuest, getQuests, deleteQuest } from '../controllers/questController';
+import { createQuest, getQuests, deleteQuest, getQuestWithPhotos } from '../controllers/questController';
 import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
@@ -68,5 +68,28 @@ router.get('/', authMiddleware, getQuests);
  *         description: Internal server error
  */
 router.delete('/:id', authMiddleware, deleteQuest);
+
+/**
+ * Retrieves a quest with its associated photos.
+ *
+ * @swagger
+ * /quests/{id}/photos:
+ *   get:
+ *     summary: Get a quest with its associated photos
+ *     tags: [Quests]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Quest ID
+ *     responses:
+ *       200:
+ *         description: Quest retrieved successfully with photos
+ *       500:
+ *         description: Internal server error
+ */
+router.get('/:id/photos', authMiddleware, getQuestWithPhotos);
 
 export default router;
