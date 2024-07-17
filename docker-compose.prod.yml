@@ -21,8 +21,6 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend:/app
-    ports:
-      - '3000:3000'
     environment:
       - MONGO_URI=${MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
