@@ -4,8 +4,69 @@ import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Quests
+ *   description: Quest management endpoints
+ */
+
+/**
+ * @swagger
+ * /quests:
+ *   post:
+ *     summary: Create a new quest
+ *     tags: [Quests]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Quest created successfully
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/', authMiddleware, createQuest);
-router.delete('/:id', authMiddleware, deleteQuest);
+
+/**
+ * @swagger
+ * /quests:
+ *   get:
+ *     summary: Get all quests
+ *     tags: [Quests]
+ *     responses:
+ *       200:
+ *         description: Quests retrieved successfully
+ *       500:
+ *         description: Internal server error
+ */
 router.get('/', authMiddleware, getQuests);
+
+/**
+ * @swagger
+ * /quests/{id}:
+ *   delete:
+ *     summary: Delete a quest
+ *     tags: [Quests]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Quest ID
+ *     responses:
+ *       200:
+ *         description: Quest deleted successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/:id', authMiddleware, deleteQuest);
 
 export default router;

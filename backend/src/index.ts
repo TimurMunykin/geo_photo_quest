@@ -3,7 +3,10 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import photoRoutes from './routes/photoRoutes';
 import authRoutes from './routes/authRoutes';
-import questRoutes from './routes/questRoutes'; // Add this line
+import questRoutes from './routes/questRoutes';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
+import swaggerDocument from '../swagger.json';
 import fs from 'fs';
 import path from 'path';
 import cors from 'cors';
@@ -15,6 +18,14 @@ const PORT = process.env.PORT || 3000;
 
 // Enable CORS for all routes
 app.use(cors());
+
+// Swagger setup
+const swaggerOptions = {
+  swaggerDefinition: swaggerDocument,
+  apis: ['./src/routes/*.ts'],
+};
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 // Ensure uploads directory exists and has correct permissions
 const uploadsDir = path.join(__dirname, '../uploads');

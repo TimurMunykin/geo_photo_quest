@@ -1,0 +1,109 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Your API",
+      "version": "1.0.0"
+    },
+    "components": {
+      "securitySchemes": {
+        "bearerAuth": {
+          "type": "http",
+          "scheme": "bearer",
+          "bearerFormat": "JWT"
+        }
+      }
+    },
+    "security": [
+      {
+        "bearerAuth": []
+      }
+    ],
+    "paths": {
+      "/auth/register": {
+        "post": {
+          "summary": "Register a new user",
+          "tags": ["Auth"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "type": "string"
+                    },
+                    "password": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "User registered successfully"
+            },
+            "400": {
+              "description": "User already exists"
+            }
+          }
+        }
+      },
+      "/auth/login": {
+        "post": {
+          "summary": "Login a user",
+          "tags": ["Auth"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "type": "string"
+                    },
+                    "password": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Logged in successfully"
+            },
+            "400": {
+              "description": "Invalid credentials"
+            }
+          }
+        }
+      },
+      "/quests": {
+        "get": {
+          "summary": "Get all quests",
+          "tags": ["Quests"],
+          "security": [
+            {
+              "bearerAuth": []
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Quests retrieved successfully"
+            },
+            "401": {
+              "description": "Unauthorized"
+            },
+            "500": {
+              "description": "Internal server error"
+            }
+          }
+        }
+      }
+    }
+  }
