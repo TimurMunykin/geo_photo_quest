@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../../config';
+import { Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
 import './Auth.css';
 
 const Auth: React.FC = () => {
@@ -28,44 +29,55 @@ const Auth: React.FC = () => {
     }
   };
 
+  const handleTabChange = (event: React.SyntheticEvent, newValue: boolean) => {
+    setIsLogin(newValue);
+  };
+
   return (
-    <>
-      <div className="tabs">
-        <button
-          className={`tab ${isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(true)}
-        >
-          Login
-        </button>
-        <button
-          className={`tab ${!isLogin ? 'active' : ''}`}
-          onClick={() => setIsLogin(false)}
-        >
-          Register
-        </button>
-      </div>
-      <div className="form-container">
-        <h2 className="text-center mb-4">{isLogin ? 'Login' : 'Register'}</h2>
-        <input
-          type="text"
+    <Box sx={{ width: '100%' }}>
+      <Tabs
+        value={isLogin}
+        onChange={handleTabChange}
+        centered
+      >
+        <Tab label="Login" value={true} />
+        <Tab label="Register" value={false} />
+      </Tabs>
+      <Box className="form-container" sx={{ p: 3 }}>
+        <Typography variant="h5" className="text-center mb-4">
+          {isLogin ? 'Login' : 'Register'}
+        </Typography>
+        <TextField
+          variant="outlined"
+          fullWidth
+          label="Username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          className="mb-2 p-2 border rounded"
+          margin="normal"
         />
-        <input
+        <TextField
+          variant="outlined"
+          fullWidth
+          label="Password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className="mb-2 p-2 border rounded"
+          margin="normal"
         />
-        <button onClick={handleAuth} className="w-full py-2 bg-blue-500 text-white rounded">
+        <Button
+          onClick={handleAuth}
+          fullWidth
+          variant="contained"
+          color="primary"
+          sx={{ mt: 2 }}
+        >
           {isLogin ? 'Login' : 'Register'}
-        </button>
-        <p className="text-red-500 mt-2">{message}</p>
-      </div>
-    </>
+        </Button>
+        <Typography color="error" sx={{ mt: 2 }}>
+          {message}
+        </Typography>
+      </Box>
+    </Box>
   );
 };
 
