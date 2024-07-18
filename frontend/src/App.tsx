@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route} from 'react-router-dom';
-import { Button, Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
-import { LocationOn, ZoomIn, ZoomOut, Layers } from "@mui/icons-material";
 import QuestManagement from './components/QuestManagement';
 import MainLayout from './components/MainLayout';
 import Auth from './components/Auth';
 import DebuggerCmp from './components/Debugger';
+import QuestDetails from './components/quest/QuestDetails';
+import { routes } from './routes';
 
 
 const App: React.FC = () => {
@@ -13,10 +13,11 @@ const App: React.FC = () => {
     <Router>
       <MainLayout>
         <Routes>
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/quest-management" element={<QuestManagement />} />
-          <Route path="/debugger-cmp" element={<DebuggerCmp />} />
+          <Route path={routes.auth}element={<Auth />} />
+          <Route path={routes.login} element={<Auth />} />
+          <Route path={routes.questManagement} element={<QuestManagement />} />
+          <Route path={routes.debugger} element={<DebuggerCmp />} />
+          <Route path={routes.questDetails()} loader={({ params }) => ({ data: params.questId })} element={<QuestDetails />} />
         </Routes>
       </MainLayout>
     </Router>

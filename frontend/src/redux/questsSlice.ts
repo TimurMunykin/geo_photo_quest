@@ -26,7 +26,12 @@ const questsSlice = createSlice({
       state.quests = action.payload;
     },
     addQuest: (state, action: PayloadAction<Quest>) => {
-      state.quests.push(action.payload);
+      const index = state.quests.findIndex(quest => quest._id === action.payload._id);
+      if (index !== -1) {
+        state.quests[index] = action.payload;
+      } else {
+        state.quests.push(action.payload);
+      }
     },
     removeQuest: (state, action: PayloadAction<string>) => {
       state.quests = state.quests.filter(quest => quest._id !== action.payload);

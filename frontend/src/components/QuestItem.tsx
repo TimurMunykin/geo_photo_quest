@@ -1,19 +1,11 @@
 import {
   Avatar,
   AvatarGroup,
-  ButtonGroup,
-  Dialog,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
-  ListItem,
   ListItemAvatar,
   ListItemButton,
-  ListItemIcon,
   ListItemText,
 } from "@mui/material";
-import Button from "@mui/material/Button";
 import { useDispatch, useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useEffect, useState } from "react";
@@ -21,10 +13,8 @@ import axios from "axios";
 import { API_URL } from "../config";
 import { selectPhotosByQuest, setPhotos } from "../redux/photosSlice";
 import { Quest, removeQuest } from "../redux/questsSlice";
-import EditIcon from "@mui/icons-material/Edit";
-import QuestPhotoManagement from "./QuestPhotoManagement";
-import CloseIcon from "@mui/icons-material/Close";
-import MapIcon from '@mui/icons-material/Map';
+import { useNavigate } from "react-router-dom";
+import { routes } from "../routes";
 
 interface QuestItemProps {
   quest: Quest;
@@ -33,14 +23,10 @@ interface QuestItemProps {
 const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
   const dispatch = useDispatch();
   const photos = useSelector(selectPhotosByQuest(quest._id));
-  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
-  const handleClickOpen = () => {
-    setOpen(true);
-  };
-
-  const handleClose = () => {
-    setOpen(false);
+  const handleClickOpen = (e: { preventDefault: () => void; }) => {
+    navigate(routes.questDetails(quest._id));
   };
 
   useEffect(() => {
@@ -51,7 +37,6 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
           headers: { Authorization: `Bearer ${token}` },
           params: { questId: quest._id },
         });
-        console.log({ ...response.data, questId: quest._id });
         dispatch(setPhotos(response.data));
       } catch (error) {
         console.error("Error fetching photos:", error);
@@ -60,8 +45,9 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
     fetchPhotos();
   }, []);
 
-  const handleDeleteClick = async () => {
+  const handleDeleteClick = async (e: { stopPropagation: () => void; }) => {
     try {
+      e.stopPropagation();
       const token = localStorage.getItem("token");
       await axios.delete(`${API_URL}/quests/${quest._id}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -95,33 +81,6 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
             {/* todo: confirmation dialog */}
           </IconButton>
       </ListItemButton>
-      <Dialog
-        open={open}
-        fullWidth={true}
-        maxWidth={"md"}
-        onClose={handleClose}
-        aria-labelledby="alert-dialog-title"
-        aria-describedby="alert-dialog-description"
-      >
-        <DialogTitle id="alert-dialog-title">{quest.name}</DialogTitle>
-        <IconButton
-          aria-label="close"
-          onClick={handleClose}
-          sx={{
-            position: "absolute",
-            right: 8,
-            top: 8,
-            color: (theme) => theme.palette.grey[500],
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-        <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            <QuestPhotoManagement quest={quest} />
-          </DialogContentText>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

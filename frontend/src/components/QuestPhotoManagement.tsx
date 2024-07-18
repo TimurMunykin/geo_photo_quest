@@ -25,19 +25,16 @@ import { Quest } from "../redux/questsSlice";
 import { useState } from "react";
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 
-interface QuestItemProps {
-  quest: Quest;
-}
 
-const QuestPhotoManagement: React.FC<QuestItemProps> = ({ quest }) => {
+const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
   const dispatch = useDispatch();
-  const photos = useSelector(selectPhotosByQuest(quest._id));
+  const photos = useSelector(selectPhotosByQuest(questId));
   const [uploadProgress, setUploadProgress] = useState(0);
   const handleUploadPhotos = async (files: FileList | null) => {
-    if (!files || !quest) return;
+    if (!files || !questId) return;
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append("photos", file));
-    formData.append("questId", quest._id);
+    formData.append("questId", questId);
 
     try {
       const token = localStorage.getItem("token");
