@@ -6,13 +6,14 @@ import { Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
 import './Auth.css';
 
 const Auth: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [tabIndex, setTabIndex] = useState(0);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
   const handleAuth = async () => {
+    const isLogin = tabIndex === 0;
     try {
       const endpoint = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/register`;
       const response = await axios.post(endpoint, { username, password });
@@ -22,30 +23,31 @@ const Auth: React.FC = () => {
         navigate('/');
       } else {
         setMessage('Registered successfully');
-        setIsLogin(true);
+        setTabIndex(0);
       }
     } catch (error) {
       setMessage(isLogin ? 'Login failed' : 'Registration failed');
     }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: boolean) => {
-    setIsLogin(newValue);
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabIndex(newValue);
+    setMessage('');
   };
 
   return (
     <Box sx={{ width: '100%' }}>
       <Tabs
-        value={isLogin}
+        value={tabIndex}
         onChange={handleTabChange}
         centered
       >
-        <Tab label="Login" value={true} />
-        <Tab label="Register" value={false} />
+        <Tab label="Login" />
+        <Tab label="Register" />
       </Tabs>
       <Box className="form-container" sx={{ p: 3 }}>
         <Typography variant="h5" className="text-center mb-4">
-          {isLogin ? 'Login' : 'Register'}
+          {tabIndex === 0 ? 'Login' : 'Register'}
         </Typography>
         <TextField
           variant="outlined"
@@ -71,7 +73,7 @@ const Auth: React.FC = () => {
           color="primary"
           sx={{ mt: 2 }}
         >
-          {isLogin ? 'Login' : 'Register'}
+          {tabIndex === 0 ? 'Login' : 'Register'}
         </Button>
         <Typography color="error" sx={{ mt: 2 }}>
           {message}
