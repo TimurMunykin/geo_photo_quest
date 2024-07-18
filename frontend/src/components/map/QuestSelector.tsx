@@ -4,7 +4,7 @@ import axios from 'axios';
 import { setQuests } from '../../redux/questsSlice';
 import { RootState } from '../../redux/store';
 import { API_URL } from '../../config';
-import { Select, MenuItem, Box, Typography } from '@mui/material';
+import { Select, MenuItem } from '@mui/material';
 
 interface QuestSelectorProps {
   selectedQuestId: string;
