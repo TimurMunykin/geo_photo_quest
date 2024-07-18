@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import L, { Control } from 'leaflet';
@@ -8,6 +8,7 @@ import { API_URL } from '../../config';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
+import { Button } from '@mui/material';
 
 interface Photo {
   _id: string;
@@ -25,6 +26,8 @@ interface Quest {
 
 interface MapProps {
   route: { latitude: number; longitude: number }[];
+  selectLocationMode?: boolean;
+  onLocationSelect?: (lat: number, lng: number) => void;
 }
 
 const createIcon = (photoPath: string) => {
@@ -48,7 +51,7 @@ const createIcon = (photoPath: string) => {
 };
 
 const RoutingControl = ({ route }: { route: { latitude: number; longitude: number }[] }) => {
-  const map = useMap();
+  const map = useMapEvents({});
   const control = useRef<Control | null>(null);
 
   useEffect(() => {
@@ -77,7 +80,16 @@ const RoutingControl = ({ route }: { route: { latitude: number; longitude: numbe
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ route }) => {
+const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) => void }> = ({ onLocationSelect }) => {
+  useMapEvents({
+    click(e) {
+      onLocationSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
+const Map: React.FC<MapProps> = ({ route, selectLocationMode, onLocationSelect }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [selectedQuest, setSelectedQuest] = useState<string>('');
@@ -106,7 +118,6 @@ const Map: React.FC<MapProps> = ({ route }) => {
   }, [navigate]);
 
   useEffect(() => {
-    console.log(currentQuest);
     if (currentQuest) {
       const fetchPhotos = async () => {
         try {
@@ -150,6 +161,9 @@ const Map: React.FC<MapProps> = ({ route }) => {
           />
         ))}
         <RoutingControl route={questRoute} />
+        {selectLocationMode && onLocationSelect && (
+          <LocationSelector onLocationSelect={onLocationSelect} />
+        )}
       </MapContainer>
     </div>
   );

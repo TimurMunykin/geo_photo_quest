@@ -21,12 +21,18 @@ import {
 } from "../../redux/photosSlice";
 import { useState } from "react";
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
+import { useNavigate } from "react-router-dom";
+import { routes } from "../../routes";
+import { setSelectLocationMode } from "../../redux/mapSlice";
 
 
 const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
   const dispatch = useDispatch();
   const photos = useSelector(selectPhotosByQuest(questId));
   const [uploadProgress, setUploadProgress] = useState(0);
+  const navigate = useNavigate();
+
+
   const handleUploadPhotos = async (files: FileList | null) => {
     if (!files || !questId) return;
     const formData = new FormData();
@@ -85,6 +91,13 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
       console.error("Failed to delete photo", error);
     }
   };
+
+  const handleGeoLocation = (photoId: string) => {
+    const photo = photos.find((photo) => photo._id === photoId);
+    if (!photo) return;
+    dispatch(setSelectLocationMode(true));
+    navigate(routes.selectLocation(photoId), { state: { photoId } });
+  }
 
   return (
     <>
@@ -146,7 +159,7 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
                 <IconButton
                   color="info"
                   sx={{ ml: "25%" }}
-                  onClick={() => console.log("Geolocation")}
+                  onClick={() => handleGeoLocation(item._id)}
                 >
                   <GpsFixedIcon />
                 </IconButton>

@@ -12,18 +12,21 @@ import { useDispatch, useSelector } from "react-redux";
 import { setCurrentQuest } from "../redux/questsSlice";
 import PestControlIcon from '@mui/icons-material/PestControl';
 import { RootState } from "../redux/store";
+import { updateGeoLocation } from "../redux/photosSlice";
+import axios from "axios";
+import { API_URL } from "../config";
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [route, _] = useState<{ latitude: number; longitude: number }[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const token = localStorage.getItem("token");
+  const selectLocationMode = useSelector<RootState, boolean>((state) => state.map.selectLocationMode);
+
   const handleOpenDialog = (dialogType: string) => {
     navigate(`/${dialogType}`);
   };
   const currentQuestId = useSelector<RootState, string>((state) => state.quests.currentQuestId ?? "");
-  console.log('currentQuestId', currentQuestId);
   const iconButtonStyle = {
     backgroundColor: "white",
     borderRadius: "50%",
@@ -34,21 +37,28 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     justifyContent: "center",
   };
 
-  const [age, setAge] = React.useState("");
-
-  const handleChange = (event: {
-    target: { value: React.SetStateAction<string> };
-  }) => {
-    setAge(event.target.value);
-  };
-
   const setSelectedQuestId = (questId: string) => {
     dispatch(setCurrentQuest(questId));
   }
 
+  const handleLocationSelect = async (latitude: number, longitude: number) => {
+    try {
+      const photoId = location.state.photoId;
+      const token = localStorage.getItem("token");
+      await axios.post(`${API_URL}/photos/${photoId}/geolocation/`, { latitude, longitude }, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      dispatch(updateGeoLocation({ photoId:location.state.photoId, latitude, longitude }));
+    } catch (error) {
+      console.error("Failed to delete photo", error);
+    }
+
+    navigate(-1)
+  }
+
   return (
     <div className="relative w-screen h-screen">
-      <Map route={route} />
+      <Map route={route}  selectLocationMode={selectLocationMode} onLocationSelect={handleLocationSelect} />
       <div
         style={{
           position: "absolute",
@@ -95,7 +105,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <PestControlIcon />
         </IconButton>
       </div>
-      <Dialog fullWidth={true} maxWidth={'md'} open={location.pathname !== "/"} onClose={() => navigate("/")}>
+      <Dialog fullWidth={true} maxWidth={'md'} open={location.pathname !== "/" && !location.pathname.startsWith('/select-location/')} onClose={() => navigate("/")}>
         <DialogContent>{children}</DialogContent>
       </Dialog>
     </div>
