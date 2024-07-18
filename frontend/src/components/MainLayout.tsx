@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { InputLabel, MenuItem, Select } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
-import Map from "./Map";
+import Map from "./map/Map";
 import "./MainLayout.css";
 import { IconButton, Dialog, DialogContent } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import EarbudsIcon from "@mui/icons-material/Earbuds";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
-import QuestSelector from "./QuestSelector";
+import QuestSelector from "./map/QuestSelector";
 import { useDispatch, useSelector } from "react-redux";
 import { setCurrentQuest } from "../redux/questsSlice";
 import PestControlIcon from '@mui/icons-material/PestControl';

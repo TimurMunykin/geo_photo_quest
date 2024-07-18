@@ -10,11 +10,11 @@ import { useDispatch, useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { API_URL } from "../config";
-import { selectPhotosByQuest, setPhotos } from "../redux/photosSlice";
-import { Quest, removeQuest } from "../redux/questsSlice";
+import { API_URL } from "../../config";
+import { selectPhotosByQuest, setPhotos } from "../../redux/photosSlice";
+import { Quest, removeQuest } from "../../redux/questsSlice";
 import { useNavigate } from "react-router-dom";
-import { routes } from "../routes";
+import { routes } from "../../routes";
 
 interface QuestItemProps {
   quest: Quest;

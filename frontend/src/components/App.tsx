@@ -1,11 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route} from 'react-router-dom';
-import QuestManagement from './components/QuestManagement';
-import MainLayout from './components/MainLayout';
-import Auth from './components/Auth';
-import DebuggerCmp from './components/Debugger';
-import QuestDetails from './components/quest/QuestDetails';
-import { routes } from './routes';
+import QuestManagement from './quest/QuestManagement';
+import MainLayout from './MainLayout';
+import Auth from './auth/Auth';
+import DebuggerCmp from './Debugger';
+import QuestDetails from './quest/QuestDetails';
+import { routes } from '../routes';
 
 
 const App: React.FC = () => {

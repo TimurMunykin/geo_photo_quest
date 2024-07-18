@@ -5,13 +5,13 @@ import {
 } from "@mui/material";
 import Button from "@mui/material/Button";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../redux/store";
+import { RootState } from "../../redux/store";
 import AddBoxIcon from "@mui/icons-material/AddBox";
 import { useState } from "react";
 import axios from "axios";
-import { API_URL } from "../config";
+import { API_URL } from "../../config";
 import QuestItem from "./QuestItem";
-import { addQuest } from "../redux/questsSlice";
+import { addQuest } from "../../redux/questsSlice";
 
 export default function QuestManagement() {
   const dispatch = useDispatch();

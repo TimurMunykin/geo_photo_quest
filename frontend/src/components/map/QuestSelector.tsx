@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
-import { setQuests } from '../redux/questsSlice';
-import { RootState } from '../redux/store';
-import { API_URL } from '../config';
+import { setQuests } from '../../redux/questsSlice';
+import { RootState } from '../../redux/store';
+import { API_URL } from '../../config';
 import { Select, MenuItem, Box, Typography } from '@mui/material';
 
 interface QuestSelectorProps {

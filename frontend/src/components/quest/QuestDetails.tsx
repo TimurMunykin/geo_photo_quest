@@ -10,7 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useEffect } from "react";
 import axios from "axios";
 import { API_URL } from "../../config";
-import QuestPhotoManagement from "../QuestPhotoManagement";
+import QuestPhotoManagement from "./QuestPhotoManagement";
 import { useDispatch } from "react-redux";
 import { addQuest } from "../../redux/questsSlice";
 import { setPhotos } from "../../redux/photosSlice";

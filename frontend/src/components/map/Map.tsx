@@ -4,11 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
 import L, { Control } from 'leaflet';
 import 'leaflet-routing-machine';
-import { API_URL } from '../config';
+import { API_URL } from '../../config';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { QuestsState } from '../redux/questsSlice';
-import { RootState } from '../redux/store';
+import { RootState } from '../../redux/store';
 
 interface Photo {
   _id: string;

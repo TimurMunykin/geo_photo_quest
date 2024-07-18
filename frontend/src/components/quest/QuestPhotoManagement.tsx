@@ -1,7 +1,5 @@
 import {
-  Box,
   Grid,
-  Icon,
   IconButton,
   ImageList,
   ImageListItem,
@@ -14,14 +12,13 @@ import Button from "@mui/material/Button";
 import { useDispatch, useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import axios from "axios";
-import { API_URL } from "../config";
+import { API_URL } from "../../config";
 import {
   removePhoto,
   selectPhotosByQuest,
   setPhotos,
   updateGeoLocation,
-} from "../redux/photosSlice";
-import { Quest } from "../redux/questsSlice";
+} from "../../redux/photosSlice";
 import { useState } from "react";
 import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 
