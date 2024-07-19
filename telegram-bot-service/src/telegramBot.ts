@@ -12,9 +12,21 @@ mongoose.connect(mongoURI);
 const botToken = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const bot = new TelegramBot(botToken, { polling: true });
 
+// In-memory storage for user sessions
 const userSessions: { [key: number]: { questId: string, currentPhotoIndex: number, photos: IPhoto[] } } = {};
 
+// Start command
+// bot.onText(/\/start/, (msg) => {
+//   bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /quest <token> to start a specific quest.");
+// });
+
 bot.onText(/\/start (.+)/, async (msg, match) => {
+  // const chatId = msg.chat.id;
+  // const param = match ? match[1] : null; // Add null check for match
+
+  // // Do something with the parameter
+  // bot.sendMessage(chatId, `You have sent the parameter: ${param}`);
+
   const chatId = msg.chat.id;
   const token = match ? match[1] : null;
 
@@ -24,6 +36,7 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
   }
 
   try {
+    bot.sendMessage(chatId, `Quest token: ${token}`);
     const quest: IQuest | null = await Quest.findOne({ token });
     const questlist = await Quest.where();
     console.log('*questlist',questlist)
