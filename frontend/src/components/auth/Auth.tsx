@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../../config';
 import { Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
-import './Auth.css';
 
 const Auth: React.FC = () => {
   const [tabIndex, setTabIndex] = useState(0);

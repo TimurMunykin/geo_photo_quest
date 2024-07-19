@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { InputLabel, MenuItem, Select } from "@mui/material";
+import { DialogTitle } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import Map from "./map/Map";
-import "./MainLayout.css";
 import { IconButton, Dialog, DialogContent } from "@mui/material";
 import LoginIcon from "@mui/icons-material/Login";
 import EarbudsIcon from "@mui/icons-material/Earbuds";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+import CloseIcon from "@mui/icons-material/Close";
 import QuestSelector from "./map/QuestSelector";
 import { useDispatch, useSelector } from "react-redux";
 import { setCurrentQuest } from "../redux/questsSlice";
@@ -106,7 +106,20 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         </IconButton>
       </div>
       <Dialog fullWidth={true} maxWidth={'md'} open={location.pathname !== "/" && !location.pathname.startsWith('/select-location/')} onClose={() => navigate("/")}>
+        <DialogTitle>List of quests</DialogTitle>
         <DialogContent>{children}</DialogContent>
+        <IconButton
+          aria-label="close"
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
+          onClick={() => navigate(-1)}
+        >
+          <CloseIcon />
+        </IconButton>
       </Dialog>
     </div>
   );

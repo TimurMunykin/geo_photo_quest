@@ -13,7 +13,7 @@ import { API_URL } from "../../config";
 import QuestItem from "./QuestItem";
 import { addQuest } from "../../redux/questsSlice";
 
-export default function QuestManagement() {
+export default function QuestsManagement() {
   const dispatch = useDispatch();
   const quests = useSelector((state: RootState) => state.quests.quests);
   const [name, setName] = useState('');

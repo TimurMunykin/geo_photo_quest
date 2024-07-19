@@ -1,9 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route} from 'react-router-dom';
-import QuestManagement from './quest/QuestManagement';
+import QuestsManagement from './quest/QuestsManagement';
 import MainLayout from './MainLayout';
 import Auth from './auth/Auth';
-import DebuggerCmp from './Debugger';
 import QuestDetails from './quest/QuestDetails';
 import { routes } from '../routes';
 
@@ -15,8 +14,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path={routes.auth}element={<Auth />} />
           <Route path={routes.login} element={<Auth />} />
-          <Route path={routes.questManagement} element={<QuestManagement />} />
-          <Route path={routes.debugger} element={<DebuggerCmp />} />
+          <Route path={routes.questManagement} element={<QuestsManagement />} />
           <Route path={routes.questDetails()} loader={({ params }) => ({ data: params.questId })} element={<QuestDetails />} />
         </Routes>
       </MainLayout>

@@ -8,7 +8,6 @@ import { API_URL } from '../../config';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
-import { Button } from '@mui/material';
 
 interface Photo {
   _id: string;
