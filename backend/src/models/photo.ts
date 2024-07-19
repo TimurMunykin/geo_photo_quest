@@ -8,7 +8,7 @@ export interface IPhoto extends Document {
   };
   createdAt: Date;
   user: mongoose.Schema.Types.ObjectId;
-  quest: mongoose.Schema.Types.ObjectId; // Add this line
+  quest: mongoose.Schema.Types.ObjectId;
 }
 
 const PhotoSchema: Schema = new Schema({
@@ -19,7 +19,7 @@ const PhotoSchema: Schema = new Schema({
   },
   createdAt: { type: Date, default: Date.now },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  quest: { type: mongoose.Schema.Types.ObjectId, ref: 'Quest', required: true } // Add this line
+  quest: { type: mongoose.Schema.Types.ObjectId, ref: 'Quest', required: true },
 });
 
 export default mongoose.model<IPhoto>('Photo', PhotoSchema);

@@ -1,17 +1,15 @@
 import { Request, Response } from 'express';
 import { extractGeolocation } from '../services/geolocationService';
 import Photo from '../models/photo';
-import { IUser } from '../models/user';
 import Quest from '../models/quest';
-import mongoose from 'mongoose';
 
 export const uploadPhotos = async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
     const { questId } = req.body;
     const userId = req.user?._id;
-
     const quest = await Quest.findById(questId);
+
     if (!quest) {
       return res.status(400).send({ message: 'Invalid quest ID' });
     }

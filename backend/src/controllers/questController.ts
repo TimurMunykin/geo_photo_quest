@@ -13,7 +13,8 @@ export const createQuest = async (req: Request, res: Response) => {
 
   try {
     const token = generateToken();
-    const quest = new Quest({ name, token });
+    const userId = req.user?._id;
+    const quest = new Quest({ name, token, user: userId });
     await quest.save();
 
     res.status(201).send(quest);
@@ -25,7 +26,8 @@ export const createQuest = async (req: Request, res: Response) => {
 
 export const getQuests = async (req: Request, res: Response) => {
   try {
-    const quests = await Quest.find();
+    const userId = req.user?._id;
+    const quests = await Quest.find({ user: userId });
     res.status(200).send(quests);
   } catch (error) {
     console.error('Error fetching quests:', error);
