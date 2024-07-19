@@ -15,6 +15,7 @@ import { selectPhotosByQuest, setPhotos } from "../../redux/photosSlice";
 import { Quest, removeQuest } from "../../redux/questsSlice";
 import { useNavigate } from "react-router-dom";
 import { routes } from "../../routes";
+import ShareIcon from "@mui/icons-material/Share";
 
 interface QuestItemProps {
   quest: Quest;
@@ -25,7 +26,7 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
   const photos = useSelector(selectPhotosByQuest(quest._id));
   const navigate = useNavigate();
 
-  const handleClickOpen = (e: { preventDefault: () => void; }) => {
+  const handleClickOpen = (e: { preventDefault: () => void }) => {
     navigate(routes.questDetails(quest._id));
   };
 
@@ -45,7 +46,7 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
     fetchPhotos();
   }, []);
 
-  const handleDeleteClick = async (e: { stopPropagation: () => void; }) => {
+  const handleDeleteClick = async (e: { stopPropagation: () => void }) => {
     try {
       e.stopPropagation();
       const token = localStorage.getItem("token");
@@ -72,14 +73,21 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
             ))}
           </AvatarGroup>
         </ListItemAvatar>
-        <ListItemText
-          primary={quest.name}
-          secondary='Description'
-        />
+
+        <ListItemText primary={quest.name} secondary="Description" />
+        <IconButton
+          color="primary"
+          // href={`https://t.me/TESTPhotoGeolocationGame_bot?start=${quest.token}`}
+          href={`https://t.me/PhotoGeolocationGame_bot?start=${quest.token}`}
+          target="_blank"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ShareIcon />
+        </IconButton>
         <IconButton color="error" onClick={handleDeleteClick}>
-            <DeleteIcon />
-            {/* todo: confirmation dialog */}
-          </IconButton>
+          <DeleteIcon />
+          {/* todo: confirmation dialog */}
+        </IconButton>
       </ListItemButton>
     </>
   );

@@ -12,12 +12,46 @@ mongoose.connect(mongoURI);
 const botToken = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const bot = new TelegramBot(botToken, { polling: true });
 
-// In-memory storage for user sessions
 const userSessions: { [key: number]: { questId: string, currentPhotoIndex: number, photos: IPhoto[] } } = {};
 
-// Start command
-bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /quest <token> to start a specific quest.");
+bot.onText(/\/start (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const token = match ? match[1] : null;
+
+  if (!token) {
+    bot.sendMessage(chatId, "Please provide a valid quest token. Usage: /quest <token>");
+    return;
+  }
+
+  try {
+    const quest: IQuest | null = await Quest.findOne({ token });
+    const questlist = await Quest.where();
+    console.log('*questlist',questlist)
+    console.log('*token',token)
+    console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
+    if (!quest) {
+      bot.sendMessage(chatId, "Invalid quest token. Please try again.");
+      return;
+    }
+
+    const photos: IPhoto[] = await Photo.find({ quest: quest._id }).sort({ order: 1 });
+    if (photos.length === 0) {
+      bot.sendMessage(chatId, "No photos available for this quest. Please try another quest.");
+      return;
+    }
+
+    userSessions[chatId] = {
+      questId: quest._id,
+      currentPhotoIndex: 0,
+      photos: photos,
+    };
+
+    bot.sendMessage(chatId, `Quest "${quest.name}" selected. Here is your first photo.`);
+    sendPhoto(chatId);
+  } catch (error: any) {
+      console.error(`Error while selecting quest: ${error.message}`);
+      bot.sendMessage(chatId, "An error occurred while selecting the quest. Please try again later.");
+  }
 });
 
 // Select quest command
