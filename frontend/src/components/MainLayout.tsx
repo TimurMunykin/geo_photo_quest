@@ -96,14 +96,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         >
           <FactCheckIcon />
         </IconButton>
-        <IconButton
-          color="primary"
-          aria-label="pin location"
-          style={iconButtonStyle}
-          onClick={() => handleOpenDialog("debugger-cmp")}
-        >
-          <PestControlIcon />
-        </IconButton>
       </div>
       <Dialog fullWidth={true} maxWidth={'md'} open={location.pathname !== "/" && !location.pathname.startsWith('/select-location/')} onClose={() => navigate("/")}>
         <DialogTitle>List of quests</DialogTitle>
