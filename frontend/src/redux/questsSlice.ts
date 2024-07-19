@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { RootState } from './store';
 
 export interface Quest {
   _id: string;
@@ -38,6 +39,10 @@ const questsSlice = createSlice({
     },
   },
 });
+
+const selectQuestState = (state: RootState) => state.quests;
+export const selectQuestById = (questId: string) =>
+  (state: RootState) => selectQuestState(state).quests.find(quest => quest._id === questId);
 
 export const { setQuests, addQuest, removeQuest, setCurrentQuest } = questsSlice.actions;
 export default questsSlice.reducer;

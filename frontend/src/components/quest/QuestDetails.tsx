@@ -11,8 +11,8 @@ import { useEffect } from "react";
 import axios from "axios";
 import { API_URL } from "../../config";
 import QuestPhotoManagement from "./QuestPhotoManagement";
-import { useDispatch } from "react-redux";
-import { addQuest } from "../../redux/questsSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { addQuest, selectQuestById } from "../../redux/questsSlice";
 import { setPhotos } from "../../redux/photosSlice";
 
 const QuestDetails: React.FC = () => {
@@ -20,6 +20,7 @@ const QuestDetails: React.FC = () => {
   const questId = params.questId;
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const quest = useSelector(selectQuestById(questId!));
 
   useEffect(() => {
     const fetchQuests = async () => {
@@ -44,7 +45,7 @@ const QuestDetails: React.FC = () => {
         fullWidth={true}
         maxWidth={"md"}
       >
-        <DialogTitle>Titile</DialogTitle>
+        <DialogTitle>{quest?.name}</DialogTitle>
         <IconButton
           aria-label="close"
           sx={{
