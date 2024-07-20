@@ -83,7 +83,6 @@ const Auth: React.FC = () => {
         >
           {tabIndex === 0 ? 'Login' : 'Register'}
         </Button>
-        {/* <Typography color="error" sx={{ mt: 2 }}> */}
         <Typography color={messageColor} sx={{ mt: 2 }}>
           {message}
         </Typography>
