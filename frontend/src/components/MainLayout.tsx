@@ -15,6 +15,7 @@ import axios from "axios";
 import { API_URL } from "../config";
 import useAuth from "../hooks/useAuth";
 import LogoutIcon from "@mui/icons-material/Logout";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [route, _] = useState<{ latitude: number; longitude: number }[]>([]);
@@ -81,38 +82,53 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         }}
       >
         {isAuthenticated && (
-          <QuestSelector
-            selectedQuestId={currentQuestId}
-            setSelectedQuestId={setSelectedQuestId}
-          />
-        )}
-        {isAuthenticated && (
-          <Button
-            variant="contained"
-            startIcon={<EarbudsIcon />}
-            onClick={() => handleOpenDialog("quest-management")}
-          >
-            Quests lists
-          </Button>
-        )}
-        {isAuthenticated && (
-          <Button
-            variant="contained"
-            startIcon={<LogoutIcon />}
-            onClick={logout}
-            color="error"
-          >
-            Log Out
-          </Button>
+          <>
+            <QuestSelector
+              selectedQuestId={currentQuestId}
+              setSelectedQuestId={setSelectedQuestId}
+            />
+            <Button
+              variant="contained"
+              startIcon={<EarbudsIcon sx={{ marginRight: "auto" }} />}
+              onClick={() => handleOpenDialog("quest-management")}
+            >
+              Quests lists
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<MyLocationIcon />}
+              onClick={() => handleOpenDialog("auth")}
+            >
+              My Location
+            </Button>
+            <Button
+              variant="contained"
+              // sx={{ justifyContent: "flex-start" }}
+              startIcon={<LogoutIcon />}
+              onClick={logout}
+              color="error"
+            >
+              Log Out
+            </Button>
+          </>
         )}
         {!isAuthenticated && (
-          <Button
-            variant="contained"
-            startIcon={<LoginIcon />}
-            onClick={() => handleOpenDialog("auth")}
-          >
-            Log In
-          </Button>
+          <>
+            <Button
+              variant="contained"
+              startIcon={<MyLocationIcon />}
+              onClick={() => handleOpenDialog("auth")}
+            >
+              My Location
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<LoginIcon />}
+              onClick={() => handleOpenDialog("auth")}
+            >
+              Log In / Sign Up
+            </Button>
+          </>
         )}
       </div>
       <Dialog

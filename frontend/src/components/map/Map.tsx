@@ -88,32 +88,11 @@ const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) 
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ route, selectLocationMode, onLocationSelect }) => {
+const Map: React.FC<MapProps> = ({ selectLocationMode, onLocationSelect }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [quests, setQuests] = useState<Quest[]>([]);
   const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
   const navigate = useNavigate();
   const currentQuest = useSelector<RootState>((state) => state.quests.currentQuestId);
-
-  useEffect(() => {
-    const fetchQuests = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await axios.get(`${API_URL}/quests`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setQuests(response.data);
-      } catch (error: any) {
-        console.error('Error fetching quests:', error);
-        if (error.response && error.response.status === 401) {
-          navigate('/login');
-        }
-      }
-    };
-    fetchQuests();
-  }, [navigate]);
 
   useEffect(() => {
     if (currentQuest) {

@@ -12,7 +12,7 @@ const App: React.FC = () => {
     <Router>
       <MainLayout>
         <Routes>
-          <Route path={routes.auth}element={<Auth />} />
+          <Route path={routes.auth} element={<Auth />} />
           <Route path={routes.login} element={<Auth />} />
           <Route path={routes.questManagement} element={<QuestsManagement />} />
           <Route path={routes.questDetails()} loader={({ params }) => ({ data: params.questId })} element={<QuestDetails />} />
