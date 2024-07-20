@@ -111,7 +111,6 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
         <input
           multiple
           hidden
-          capture={true}
           type="file"
           onChange={(e) => handleUploadPhotos(e.target.files)}
           accept="image/*"
