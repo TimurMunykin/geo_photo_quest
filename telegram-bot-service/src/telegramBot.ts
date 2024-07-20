@@ -15,17 +15,7 @@ const bot = new TelegramBot(botToken, { polling: true });
 // In-memory storage for user sessions
 const userSessions: { [key: number]: { questId: string, currentPhotoIndex: number, photos: IPhoto[] } } = {};
 
-// Start command
-// bot.onText(/\/start/, (msg) => {
-//   bot.sendMessage(msg.chat.id, "Welcome to the Photo Geolocation Quest! Type /quest <token> to start a specific quest.");
-// });
-
 bot.onText(/\/start (.+)/, async (msg, match) => {
-  // const chatId = msg.chat.id;
-  // const param = match ? match[1] : null; // Add null check for match
-
-  // // Do something with the parameter
-  // bot.sendMessage(chatId, `You have sent the parameter: ${param}`);
 
   const chatId = msg.chat.id;
   const token = match ? match[1] : null;
@@ -39,15 +29,19 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
     bot.sendMessage(chatId, `Quest token: ${token}`);
     const quest: IQuest | null = await Quest.findOne({ token });
     const questlist = await Quest.where();
-    console.log('*questlist',questlist)
-    console.log('*token',token)
-    console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
+    // console.log('date', new Date().toLocaleString());
+    // console.log('*questlist',questlist)
+    // console.log('*token',token)
+    // console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
     if (!quest) {
       bot.sendMessage(chatId, "Invalid quest token. Please try again.");
       return;
     }
 
     const photos: IPhoto[] = await Photo.find({ quest: quest._id }).sort({ order: 1 });
+    // const photosAll: IPhoto[] = await Photo.where();
+    // console.log(`Photos: ${JSON.stringify(photosAll)}`); // Log the quest details for debugging
+
     if (photos.length === 0) {
       bot.sendMessage(chatId, "No photos available for this quest. Please try another quest.");
       return;
@@ -127,19 +121,23 @@ const sendPhoto = (chatId: number) => {
   bot.once('location', (msg) => {
     const userLocation = msg.location;
     if (userLocation) {
-      const { latitude, longitude } = photo.geolocation;
-      const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
-      if (distance < 50) {
-        userProgress.currentPhotoIndex += 1;
-        if (userProgress.currentPhotoIndex < userProgress.photos.length) {
-          bot.sendMessage(chatId, "Correct! Here is your next photo.");
-          sendPhoto(chatId);
+      if (photo.geolocation && photo.geolocation.latitude && photo.geolocation.longitude) {
+        const { latitude, longitude } = photo.geolocation;
+        const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
+        if (distance < 50) {
+          userProgress.currentPhotoIndex += 1;
+          if (userProgress.currentPhotoIndex < userProgress.photos.length) {
+            bot.sendMessage(chatId, "Correct! Here is your next photo.");
+            sendPhoto(chatId);
+          } else {
+            bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
+            delete userSessions[chatId];
+          }
         } else {
-          bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
-          delete userSessions[chatId];
+          bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
         }
       } else {
-        bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
+        bot.sendMessage(chatId, "No geolocation found for this photo. Please try again.");
       }
     }
   });
