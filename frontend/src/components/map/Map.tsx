@@ -21,11 +21,6 @@ interface Photo {
   };
 }
 
-interface Quest {
-  _id: string;
-  name: string;
-}
-
 interface MapProps {
   route: { latitude: number; longitude: number }[];
   userLocation: { lat: number; lng: number } | null;
@@ -129,7 +124,7 @@ const Map: React.FC<MapProps> = ({
             params: { questId: currentQuest },
           });
           const photosData = response.data;
-          if (!photosData[0].geolocation) {
+          if (photosData.length <= 1 || photosData.some((photo: Photo) => !photo.geolocation)){
             setIsErrorVisible(true);
             return;
           } else {
