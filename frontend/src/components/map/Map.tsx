@@ -1,13 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
-import L, { Control } from 'leaflet';
-import 'leaflet-routing-machine';
-import { API_URL } from '../../config';
-import { useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { RootState } from '../../redux/store';
+import React, { useEffect, useRef, useState } from "react";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import axios from "axios";
+import L, { Control } from "leaflet";
+import "leaflet-routing-machine";
+import { API_URL } from "../../config";
+import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
+import AlertTitle from '@mui/material/AlertTitle';
+import Alert from "@mui/material/Alert";
+import Stack from "@mui/material/Stack";
 
 interface Photo {
   _id: string;
@@ -44,13 +47,17 @@ const createIcon = (photoPath: string) => {
   `;
   return L.divIcon({
     html: svgIcon,
-    className: '',
+    className: "",
     iconSize: [60, 60],
-    iconAnchor: [30, 30]
+    iconAnchor: [30, 30],
   });
 };
 
-const RoutingControl = ({ route }: { route: { latitude: number; longitude: number }[] }) => {
+const RoutingControl = ({
+  route,
+}: {
+  route: { latitude: number; longitude: number }[];
+}) => {
   const map = useMapEvents({});
   const control = useRef<Control | null>(null);
 
@@ -60,13 +67,15 @@ const RoutingControl = ({ route }: { route: { latitude: number; longitude: numbe
         map.removeControl(control.current);
       }
 
-      const waypoints = route.map(point => L.latLng(point.latitude, point.longitude));
+      const waypoints = route.map((point) =>
+        L.latLng(point.latitude, point.longitude)
+      );
 
       control.current = L.Routing.control({
         waypoints,
         routeWhileDragging: true,
         showAlternatives: false,
-        waypointMode: 'snap', // Snap the route to roads
+        waypointMode: "snap", // Snap the route to roads
         addWaypoints: false,
         fitSelectedRoutes: true,
         show: false,
@@ -76,11 +85,13 @@ const RoutingControl = ({ route }: { route: { latitude: number; longitude: numbe
   }, [route, map]);
 
   // https://gis.stackexchange.com/questions/324016/leaflet-routing-machine-show-option-doesnt-work
-  document.getElementsByClassName('leaflet-control-container')[0]?.remove()
+  document.getElementsByClassName("leaflet-control-container")[0]?.remove();
   return null;
 };
 
-const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) => void }> = ({ onLocationSelect }) => {
+const LocationSelector: React.FC<{
+  onLocationSelect: (lat: number, lng: number) => void;
+}> = ({ onLocationSelect }) => {
   useMapEvents({
     click(e) {
       onLocationSelect(e.latlng.lat, e.latlng.lng);
@@ -89,25 +100,41 @@ const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) 
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ route, userLocation, selectLocationMode, onLocationSelect }) => {
+const Map: React.FC<MapProps> = ({
+  route,
+  userLocation,
+  selectLocationMode,
+  onLocationSelect,
+}) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [isErrorVisible, setIsErrorVisible] = useState(false);
+  const [questRoute, setQuestRoute] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
   const mapRef = useRef<L.Map>(null);
   const navigate = useNavigate();
-  const currentQuest = useSelector<RootState>((state) => state.quests.currentQuestId);
+  const currentQuest = useSelector<RootState>(
+    (state) => state.quests.currentQuestId
+  );
 
   useEffect(() => {
     if (currentQuest) {
       const fetchPhotos = async () => {
         try {
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem("token");
           const response = await axios.get(`${API_URL}/photos`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              Authorization: `Bearer ${token}`,
             },
-            params: { questId: currentQuest }
+            params: { questId: currentQuest },
           });
           const photosData = response.data;
+          if (!photosData[0].geolocation) {
+            setIsErrorVisible(true);
+            return;
+          } else {
+            setIsErrorVisible(false);
+          }
           setPhotos(photosData);
           const routeData = photosData.map((photo: Photo) => ({
             latitude: photo.geolocation.latitude,
@@ -115,9 +142,9 @@ const Map: React.FC<MapProps> = ({ route, userLocation, selectLocationMode, onLo
           }));
           setQuestRoute(routeData);
         } catch (error: any) {
-          console.error('Error fetching photos:', error);
+          console.error("Error fetching photos:", error);
           if (error.response && error.response.status === 401) {
-            navigate('/login');
+            navigate("/login");
           }
         }
       };
@@ -132,30 +159,53 @@ const Map: React.FC<MapProps> = ({ route, userLocation, selectLocationMode, onLo
   }, [userLocation]);
 
   return (
-    <div className="flex flex-col items-center">
-      <MapContainer
-        center={[50.103333, 14.450027]}
-        zoom={13}
-        style={{ height: '100vh', width: '100%' }}
-        ref={mapRef}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        {photos.map(photo => (
-          <Marker
-            key={photo._id}
-            position={[photo.geolocation.latitude, photo.geolocation.longitude]}
-            icon={createIcon(photo.path)}
+    <>
+      {isErrorVisible && (
+        <Stack>
+          <Alert
+            variant="filled"
+            severity="error"
+            sx={{
+              marginLeft: '40%',
+              position: "absolute",
+              marginTop: '20px',
+              zIndex: 999999,
+            }}
+          >
+            <AlertTitle>Error</AlertTitle>
+            One or more of your photos in the selected quest does not contain
+            coordinates.
+          </Alert>
+        </Stack>
+      )}
+      <div className="flex flex-col items-center">
+        <MapContainer
+          center={[50.103333, 14.450027]}
+          zoom={13}
+          style={{ height: "100vh", width: "100%" }}
+          ref={mapRef}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
-        ))}
-        <RoutingControl route={questRoute.length > 0 ? questRoute : route} />
-        {selectLocationMode && onLocationSelect && (
-          <LocationSelector onLocationSelect={onLocationSelect} />
-        )}
-      </MapContainer>
-    </div>
+          {photos.map((photo) => (
+            <Marker
+              key={photo._id}
+              position={[
+                photo.geolocation.latitude,
+                photo.geolocation.longitude,
+              ]}
+              icon={createIcon(photo.path)}
+            />
+          ))}
+          <RoutingControl route={questRoute.length > 0 ? questRoute : route} />
+          {selectLocationMode && onLocationSelect && (
+            <LocationSelector onLocationSelect={onLocationSelect} />
+          )}
+        </MapContainer>
+      </div>
+    </>
   );
 };
 
