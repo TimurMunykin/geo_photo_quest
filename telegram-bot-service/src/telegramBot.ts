@@ -19,15 +19,12 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const token = match ? match[1] : null;
 
-  bot.sendMessage(chatId, `chatID: ___${chatId}___`);
-
   if (!token) {
     bot.sendMessage(chatId, "Please provide a valid quest token. Usage: /quest <token>");
     return;
   }
 
   try {
-    bot.sendMessage(chatId, `Quest token: ${token}`);
     const quest: IQuest | null = await Quest.findOne({ token });
     if (!quest) {
       bot.sendMessage(chatId, "Invalid quest token. Please try again.");
@@ -95,8 +92,6 @@ bot.onText(/\/quest (.+)/, async (msg, match) => {
 bot.on('location', (msg) => {
   const userLocation = msg.location;
   const chatId = msg.chat.id;
-
-  bot.sendMessage(chatId, `chatID: ___${chatId}___`);
 
   if (userLocation) {
     const userProgress = userSessions[chatId];
