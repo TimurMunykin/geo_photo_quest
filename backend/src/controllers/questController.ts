@@ -3,7 +3,6 @@ import Quest from '../models/quest';
 import crypto from 'crypto';
 import Photo from '../models/photo';
 
-// Function to generate a unique token
 const generateToken = () => {
   return crypto.randomBytes(16).toString('hex');
 };
@@ -62,3 +61,23 @@ export const getQuestWithPhotos = async (req: Request, res: Response) => {
     res.status(500).send({ message: 'Internal server error' });
   }
 };
+
+export const updateQuest = async (req: Request, res: Response) => {
+  const questId = req.params.id;
+  const { name } = req.body;
+
+  try {
+    const quest = await Quest.findById(questId);
+    if (!quest) {
+      return res.status(404).send({ message: 'Quest not found' });
+    }
+
+    quest.name = name;
+    await quest.save();
+
+    res.status(200).send(quest);
+  } catch (error) {
+    console.error('Error updating quest:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+}

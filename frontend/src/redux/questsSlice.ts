@@ -37,6 +37,12 @@ const questsSlice = createSlice({
     removeQuest: (state, action: PayloadAction<string>) => {
       state.quests = state.quests.filter(quest => quest._id !== action.payload);
     },
+    updateQuquestTitle: (state, action: PayloadAction<{ questId: string, title: string }>) => {
+      const index = state.quests.findIndex(quest => quest._id === action.payload.questId);
+      if (index !== -1) {
+        state.quests[index].name = action.payload.title;
+      }
+    }
   },
 });
 
@@ -44,5 +50,5 @@ const selectQuestState = (state: RootState) => state.quests;
 export const selectQuestById = (questId: string) =>
   (state: RootState) => selectQuestState(state).quests.find(quest => quest._id === questId);
 
-export const { setQuests, addQuest, removeQuest, setCurrentQuest } = questsSlice.actions;
+export const { setQuests, addQuest, removeQuest, setCurrentQuest, updateQuquestTitle } = questsSlice.actions;
 export default questsSlice.reducer;

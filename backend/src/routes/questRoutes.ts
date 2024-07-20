@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createQuest, getQuests, deleteQuest, getQuestWithPhotos } from '../controllers/questController';
+import { createQuest, getQuests, deleteQuest, getQuestWithPhotos, updateQuest } from '../controllers/questController';
 import authMiddleware from '../middleware/authMiddleware';
 
 const router = Router();
@@ -47,6 +47,36 @@ router.post('/', authMiddleware, createQuest);
  *         description: Internal server error
  */
 router.get('/', authMiddleware, getQuests);
+
+/**
+ * @swagger
+ * /quests/{id}:
+ *   put:
+ *     summary: Update a quest
+ *     tags: [Quests]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Quest ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Quest updated successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id/', authMiddleware, updateQuest);
 
 /**
  * @swagger
