@@ -91,7 +91,6 @@ const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) 
 const Map: React.FC<MapProps> = ({ route, selectLocationMode, onLocationSelect }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
-  const [selectedQuest, setSelectedQuest] = useState<string>('');
   const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
   const navigate = useNavigate();
   const currentQuest = useSelector<RootState>((state) => state.quests.currentQuestId);

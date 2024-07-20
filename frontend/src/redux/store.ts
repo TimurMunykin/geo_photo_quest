@@ -11,6 +11,11 @@ const store = configureStore({
     auth: authReducer,
     map: mapReducer,
   },
+  preloadedState: {
+    auth: {
+      token: localStorage.getItem('token'),
+    },
+  },
 });
 
 export type RootState = ReturnType<typeof store.getState>;

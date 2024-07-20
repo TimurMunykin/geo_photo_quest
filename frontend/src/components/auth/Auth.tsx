@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from '../../config';
 import { Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
+import { useDispatch } from 'react-redux';
+import { setToken } from '../../redux/authSlice';
 
 const Auth: React.FC = () => {
   const [tabIndex, setTabIndex] = useState(0);
@@ -10,6 +12,7 @@ const Auth: React.FC = () => {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleAuth = async () => {
     const isLogin = tabIndex === 0;
@@ -17,7 +20,8 @@ const Auth: React.FC = () => {
       const endpoint = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/register`;
       const response = await axios.post(endpoint, { username, password });
       if (isLogin) {
-        localStorage.setItem('token', response.data.token);
+        const token = response.data.token;
+        dispatch(setToken(token));
         setMessage('Logged in successfully');
         navigate('/');
       } else {
