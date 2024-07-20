@@ -12,13 +12,14 @@ mongoose.connect(mongoURI);
 const botToken = process.env.TELEGRAM_BOT_TOKEN || 'YOUR_TELEGRAM_BOT_TOKEN_HERE';
 const bot = new TelegramBot(botToken, { polling: true });
 
-// In-memory storage for user sessions
 const userSessions: { [key: number]: { questId: string, currentPhotoIndex: number, photos: IPhoto[] } } = {};
 
 bot.onText(/\/start (.+)/, async (msg, match) => {
 
   const chatId = msg.chat.id;
   const token = match ? match[1] : null;
+
+  bot.sendMessage(chatId, `chatID: ___${chatId}___`);
 
   if (!token) {
     bot.sendMessage(chatId, "Please provide a valid quest token. Usage: /quest <token>");
@@ -28,19 +29,12 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
   try {
     bot.sendMessage(chatId, `Quest token: ${token}`);
     const quest: IQuest | null = await Quest.findOne({ token });
-    const questlist = await Quest.where();
-    // console.log('date', new Date().toLocaleString());
-    // console.log('*questlist',questlist)
-    // console.log('*token',token)
-    // console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
     if (!quest) {
       bot.sendMessage(chatId, "Invalid quest token. Please try again.");
       return;
     }
 
     const photos: IPhoto[] = await Photo.find({ quest: quest._id }).sort({ order: 1 });
-    // const photosAll: IPhoto[] = await Photo.where();
-    // console.log(`Photos: ${JSON.stringify(photosAll)}`); // Log the quest details for debugging
 
     if (photos.length === 0) {
       bot.sendMessage(chatId, "No photos available for this quest. Please try another quest.");
@@ -56,12 +50,11 @@ bot.onText(/\/start (.+)/, async (msg, match) => {
     bot.sendMessage(chatId, `Quest "${quest.name}" selected. Here is your first photo.`);
     sendPhoto(chatId);
   } catch (error: any) {
-      console.error(`Error while selecting quest: ${error.message}`);
-      bot.sendMessage(chatId, "An error occurred while selecting the quest. Please try again later.");
+    console.error(`Error while selecting quest: ${error.message}`);
+    bot.sendMessage(chatId, "An error occurred while selecting the quest. Please try again later.");
   }
 });
 
-// Select quest command
 bot.onText(/\/quest (.+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   const token = match ? match[1] : null;
@@ -74,9 +67,6 @@ bot.onText(/\/quest (.+)/, async (msg, match) => {
   try {
     const quest: IQuest | null = await Quest.findOne({ token });
     const questlist = await Quest.where();
-    console.log('*questlist',questlist)
-    console.log('*token',token)
-    console.log(`Fetched quest: ${JSON.stringify(quest)}`); // Log the quest details for debugging
     if (!quest) {
       bot.sendMessage(chatId, "Invalid quest token. Please try again.");
       return;
@@ -102,48 +92,36 @@ bot.onText(/\/quest (.+)/, async (msg, match) => {
   }
 });
 
-// Function to send photo
-const sendPhoto = (chatId: number) => {
-  const userProgress = userSessions[chatId];
-  if (!userProgress) {
-    bot.sendMessage(chatId, "No active quest found. Please start a quest by using /quest <token>.");
-    return;
-  }
+bot.on('location', (msg) => {
+  const userLocation = msg.location;
+  const chatId = msg.chat.id;
 
-  const photo = userProgress.photos[userProgress.currentPhotoIndex];
-  const photoPath = path.join(__dirname, '../../uploads', photo.path);
+  bot.sendMessage(chatId, `chatID: ___${chatId}___`);
 
-  // bot.sendMessage(chatId, `${FULL_URL}/uploads/${photo.path}`);
-  bot.sendPhoto(chatId, `${FULL_URL}/uploads/${photo.path}`, {
-    caption: "Please send your location when you reach this point."
-  });
-
-  bot.once('location', (msg) => {
-    const userLocation = msg.location;
-    if (userLocation) {
-      if (photo.geolocation && photo.geolocation.latitude && photo.geolocation.longitude) {
-        const { latitude, longitude } = photo.geolocation;
-        const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
-        if (distance < 50) {
-          userProgress.currentPhotoIndex += 1;
-          if (userProgress.currentPhotoIndex < userProgress.photos.length) {
-            bot.sendMessage(chatId, "Correct! Here is your next photo.");
-            sendPhoto(chatId);
-          } else {
-            bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
-            delete userSessions[chatId];
-          }
+  if (userLocation) {
+    const userProgress = userSessions[chatId];
+    const photo = userProgress.photos[userProgress.currentPhotoIndex];
+    if (photo.geolocation && photo.geolocation.latitude && photo.geolocation.longitude) {
+      const { latitude, longitude } = photo.geolocation;
+      const distance = getDistance(userLocation.latitude, userLocation.longitude, latitude, longitude);
+      if (distance < 50) {
+        userProgress.currentPhotoIndex += 1;
+        if (userProgress.currentPhotoIndex < userProgress.photos.length) {
+          bot.sendMessage(chatId, "Correct! Here is your next photo.");
+          sendPhoto(chatId);
         } else {
-          bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
+          bot.sendMessage(chatId, "Congratulations! You have completed the quest.");
+          delete userSessions[chatId];
         }
       } else {
-        bot.sendMessage(chatId, "No geolocation found for this photo. Please try again.");
+        bot.sendMessage(chatId, "You are not at the correct location. Please try again.");
       }
+    } else {
+      bot.sendMessage(chatId, "No geolocation found for this photo. Please try again.");
     }
-  });
-};
+  }
+});
 
-// Function to calculate distance between two geolocations
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3;
   const phi1 = lat1 * Math.PI / 180;
@@ -158,4 +136,19 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 
   const distance = R * c;
   return distance;
+};
+
+const sendPhoto = (chatId: number) => {
+  const userProgress = userSessions[chatId];
+  if (!userProgress) {
+    bot.sendMessage(chatId, "No active quest found. Please start a quest by using /quest <token>.");
+    return;
+  }
+
+  const photo = userProgress.photos[userProgress.currentPhotoIndex];
+
+  console.log(chatId, `${FULL_URL}/uploads/${photo.path}`);
+  bot.sendPhoto(chatId, `${FULL_URL}/uploads/${photo.path}`, {
+    caption: "Please send your location when you reach this point."
+  });
 };
