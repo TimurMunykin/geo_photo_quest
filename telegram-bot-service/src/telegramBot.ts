@@ -113,7 +113,7 @@ const sendPhoto = (chatId: number) => {
   const photo = userProgress.photos[userProgress.currentPhotoIndex];
   const photoPath = path.join(__dirname, '../../uploads', photo.path);
 
-  bot.sendMessage(chatId, `${FULL_URL}/uploads/${photo.path}`);
+  // bot.sendMessage(chatId, `${FULL_URL}/uploads/${photo.path}`);
   bot.sendPhoto(chatId, `${FULL_URL}/uploads/${photo.path}`, {
     caption: "Please send your location when you reach this point."
   });
