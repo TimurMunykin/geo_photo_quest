@@ -25,6 +25,7 @@ interface Quest {
 
 interface MapProps {
   route: { latitude: number; longitude: number }[];
+  userLocation: { lat: number; lng: number } | null;
   selectLocationMode?: boolean;
   onLocationSelect?: (lat: number, lng: number) => void;
 }
@@ -88,9 +89,10 @@ const LocationSelector: React.FC<{ onLocationSelect: (lat: number, lng: number) 
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ selectLocationMode, onLocationSelect }) => {
+const Map: React.FC<MapProps> = ({ route, userLocation, selectLocationMode, onLocationSelect }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [questRoute, setQuestRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const mapRef = useRef<L.Map>(null);
   const navigate = useNavigate();
   const currentQuest = useSelector<RootState>((state) => state.quests.currentQuestId);
 
@@ -123,9 +125,20 @@ const Map: React.FC<MapProps> = ({ selectLocationMode, onLocationSelect }) => {
     }
   }, [currentQuest, navigate]);
 
+  useEffect(() => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.setView([userLocation.lat, userLocation.lng], 13);
+    }
+  }, [userLocation]);
+
   return (
     <div className="flex flex-col items-center">
-      <MapContainer center={[50.103333, 14.450027]} zoom={13} style={{ height: '100vh', width: '100%' }}>
+      <MapContainer
+        center={[50.103333, 14.450027]}
+        zoom={13}
+        style={{ height: '100vh', width: '100%' }}
+        ref={mapRef}
+      >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -137,7 +150,7 @@ const Map: React.FC<MapProps> = ({ selectLocationMode, onLocationSelect }) => {
             icon={createIcon(photo.path)}
           />
         ))}
-        <RoutingControl route={questRoute} />
+        <RoutingControl route={questRoute.length > 0 ? questRoute : route} />
         {selectLocationMode && onLocationSelect && (
           <LocationSelector onLocationSelect={onLocationSelect} />
         )}

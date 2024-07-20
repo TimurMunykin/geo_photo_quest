@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@mui/material";
 import { useLocation, useNavigate } from "react-router-dom";
 import Map from "./map/Map";
@@ -19,6 +19,7 @@ import MyLocationIcon from "@mui/icons-material/MyLocation";
 
 const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [route, _] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -63,10 +64,29 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     navigate(-1);
   };
 
+  const handleMoveToMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('Error getting user location:', error);
+        }
+      );
+    } else {
+      console.error('Geolocation is not supported by this browser.');
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen">
       <Map
         route={route}
+        userLocation={userLocation}
         selectLocationMode={selectLocationMode}
         onLocationSelect={handleLocationSelect}
       />
@@ -97,7 +117,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Button
               variant="contained"
               startIcon={<MyLocationIcon />}
-              onClick={() => handleOpenDialog("auth")}
+              onClick={handleMoveToMyLocation}
             >
               My Location
             </Button>
@@ -117,7 +137,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <Button
               variant="contained"
               startIcon={<MyLocationIcon />}
-              onClick={() => handleOpenDialog("auth")}
+              onClick={handleMoveToMyLocation}
             >
               My Location
             </Button>
