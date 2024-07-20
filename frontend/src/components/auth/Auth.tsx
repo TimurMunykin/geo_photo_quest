@@ -5,12 +5,14 @@ import { API_URL } from '../../config';
 import { Tabs, Tab, Box, TextField, Button, Typography } from '@mui/material';
 import { useDispatch } from 'react-redux';
 import { setToken } from '../../redux/authSlice';
+import { green } from '@mui/material/colors';
 
 const Auth: React.FC = () => {
   const [tabIndex, setTabIndex] = useState(0);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [messageColor, setMessageColor] = useState('error');
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -22,13 +24,16 @@ const Auth: React.FC = () => {
       if (isLogin) {
         const token = response.data.token;
         dispatch(setToken(token));
+        setMessageColor(green[600]);
         setMessage('Logged in successfully');
         navigate('/');
       } else {
+        setMessageColor(green[600]);
         setMessage('Registered successfully');
         setTabIndex(0);
       }
     } catch (error) {
+      setMessageColor('error');
       setMessage(isLogin ? 'Login failed' : 'Registration failed');
     }
   };
@@ -78,7 +83,8 @@ const Auth: React.FC = () => {
         >
           {tabIndex === 0 ? 'Login' : 'Register'}
         </Button>
-        <Typography color="error" sx={{ mt: 2 }}>
+        {/* <Typography color="error" sx={{ mt: 2 }}> */}
+        <Typography color={messageColor} sx={{ mt: 2 }}>
           {message}
         </Typography>
       </Box>
