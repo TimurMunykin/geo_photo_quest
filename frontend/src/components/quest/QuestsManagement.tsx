@@ -36,7 +36,7 @@ export default function QuestsManagement() {
 
   return (
     <div>
-      <DialogTitle>My Quests22222</DialogTitle>
+      <DialogTitle>My Quests</DialogTitle>
       <List dense={false}>
         {quests.map((quest) => (
           <QuestItem key={quest._id} quest={quest} />
