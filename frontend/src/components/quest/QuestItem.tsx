@@ -1,6 +1,7 @@
 import {
   Avatar,
   AvatarGroup,
+  Box,
   IconButton,
   ListItemAvatar,
   ListItemButton,
@@ -74,10 +75,12 @@ const QuestItem: React.FC<QuestItemProps> = ({ quest }) => {
           </AvatarGroup>
         </ListItemAvatar>
 
-        <ListItemText primary={quest.name} secondary="Description" />
+        <ListItemText
+          primary={<Box sx={{ml:'10px'}}>{quest.name}</Box>}
+          // secondary="Description"
+        />
         <IconButton
           color="primary"
-          // href={`https://t.me/TESTPhotoGeolocationGame_bot?start=${quest.token}`}
           href={`https://t.me/PhotoGeolocationGame_bot?start=${quest.token}`}
           target="_blank"
           onClick={(e) => e.stopPropagation()}
