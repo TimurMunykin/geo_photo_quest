@@ -34,7 +34,6 @@ const QuestPhotoManagement: React.FC<{ questId: string }> = ({ questId }) => {
   const photos = useSelector(selectPhotosByQuest(questId));
   const [uploadProgress, setUploadProgress] = useState(0);
   const navigate = useNavigate();
-  const [order, setOrder] = useState<number[]>([]);
 
   const handleUploadPhotos = async (files: FileList | null) => {
     if (!files || !questId) return;
@@ -131,7 +130,8 @@ const QuestPhotoManagement: React.FC<{ questId: string }> = ({ questId }) => {
     } catch (error) {
       console.error("Failed to update photo order", error);
     }
-  }
+  };
+
   return (
     <>
       <List sx={{ width: "100%" }}>
@@ -190,18 +190,30 @@ const QuestPhotoManagement: React.FC<{ questId: string }> = ({ questId }) => {
               <DeleteIcon />
             </IconButton>
 
-            <IconButton onClick={() => updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) - 1)}>
-              <ArrowUpwardIcon/>
+            <IconButton
+              onClick={() =>
+                updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) - 1)
+              }
+            >
+              <ArrowUpwardIcon />
             </IconButton>
 
-            <IconButton onClick={() => updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) + 1)}>
-              <ArrowDownwardIcon/>
+            <IconButton
+              onClick={() =>
+                updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) + 1)
+              }
+            >
+              <ArrowDownwardIcon />
             </IconButton>
           </ListItem>
         ))}
       </List>
 
-      <LinearProgress sx={{height:"5px"}} variant="determinate" value={uploadProgress}/>
+      <LinearProgress
+        sx={{ height: "5px" }}
+        variant="determinate"
+        value={uploadProgress}
+      />
 
       <Button
         variant="contained"

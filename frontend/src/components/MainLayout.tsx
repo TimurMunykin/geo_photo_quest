@@ -112,7 +112,7 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               startIcon={<EarbudsIcon sx={{ marginRight: "auto" }} />}
               onClick={() => handleOpenDialog("quest-management")}
             >
-              Quests lists
+              My Quests
             </Button>
             <Button
               variant="contained"
