@@ -11,6 +11,7 @@ interface Photo {
   };
   createdAt: string;
   quest: string;
+  order: number;
 }
 
 interface PhotosState {
@@ -31,7 +32,7 @@ const photosSlice = createSlice({
       state.photos = [
         ...state.photos.filter(photo => !newPhotoIds.includes(photo._id)),
         ...newPhotos,
-      ];
+      ].sort((a, b) => a.order - b.order);
     },
     addPhoto: (state, action: PayloadAction<Photo>) => {
       state.photos.push(action.payload);

@@ -1,12 +1,13 @@
 import {
-  Grid,
+  Avatar,
+  Box,
   IconButton,
-  ImageList,
-  ImageListItem,
-  ImageListItemBar,
-  InputBase,
   LinearProgress,
+  List,
+  ListItem,
   TextField,
+  Tooltip,
+  Zoom,
 } from "@mui/material";
 import Button from "@mui/material/Button";
 import { useDispatch, useSelector } from "react-redux";
@@ -15,6 +16,7 @@ import axios from "axios";
 import { API_URL } from "../../config";
 import {
   removePhoto,
+  reorderPhotos,
   selectPhotosByQuest,
   setPhotos,
   updateGeoLocation,
@@ -24,14 +26,15 @@ import GpsFixedIcon from "@mui/icons-material/GpsFixed";
 import { useNavigate } from "react-router-dom";
 import { routes } from "../../routes";
 import { setSelectLocationMode } from "../../redux/mapSlice";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 
-
-const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
+const QuestPhotoManagement: React.FC<{ questId: string }> = ({ questId }) => {
   const dispatch = useDispatch();
   const photos = useSelector(selectPhotosByQuest(questId));
   const [uploadProgress, setUploadProgress] = useState(0);
   const navigate = useNavigate();
-
+  const [order, setOrder] = useState<number[]>([]);
 
   const handleUploadPhotos = async (files: FileList | null) => {
     if (!files || !questId) return;
@@ -72,9 +75,13 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
   const handleUpdateLatitude = async (photoId: string, latitude: string) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.post(`${API_URL}/photos/${photoId}/geolocation/`, { latitude }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.post(
+        `${API_URL}/photos/${photoId}/geolocation/`,
+        { latitude },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       dispatch(updateGeoLocation({ photoId, latitude: parseFloat(latitude) }));
     } catch (error) {
       console.error("Failed to delete photo", error);
@@ -83,28 +90,123 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
   const handleUpdateLongitude = async (photoId: string, longitude: string) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.post(`${API_URL}/photos/${photoId}/geolocation/`, { longitude }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      dispatch(updateGeoLocation({ photoId, longitude: parseFloat(longitude) }));
+      await axios.post(
+        `${API_URL}/photos/${photoId}/geolocation/`,
+        { longitude },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      dispatch(
+        updateGeoLocation({ photoId, longitude: parseFloat(longitude) })
+      );
     } catch (error) {
       console.error("Failed to delete photo", error);
     }
   };
-
   const handleGeoLocation = (photoId: string) => {
     const photo = photos.find((photo) => photo._id === photoId);
     if (!photo) return;
     dispatch(setSelectLocationMode(true));
     navigate(routes.selectLocation(photoId), { state: { photoId } });
-  }
+  };
 
+  const updatePhotoOrder = async (startIndex: number, endIndex: number) => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const updatedPhotos = Array.from(photos);
+      const [movedPhoto] = updatedPhotos.splice(startIndex, 1);
+      updatedPhotos.splice(endIndex, 0, movedPhoto);
+
+      await axios.put(
+        `${API_URL}/photos/order`,
+        { order: updatedPhotos.map((photo) => photo._id) },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      dispatch(reorderPhotos({ startIndex, endIndex }));
+    } catch (error) {
+      console.error("Failed to update photo order", error);
+    }
+  }
   return (
     <>
+      <List sx={{ width: "100%" }}>
+        {photos.map((item) => (
+          <ListItem key={item._id}>
+            <Tooltip
+              TransitionComponent={Zoom}
+              placement="left"
+              title={
+                <Box
+                  component="img"
+                  src={`${API_URL}/uploads/${item.path}`}
+                  sx={{ borderRadius: 2 }}
+                />
+              }
+            >
+              <Avatar
+                src={`${API_URL}/uploads/${item.path}`}
+                sx={{ width: 50, height: 50 }}
+              />
+            </Tooltip>
+
+            <TextField
+              label="Latitude"
+              size="small"
+              fullWidth={true}
+              defaultValue={`${item.geolocation?.latitude || ""}`}
+              sx={{ ml: "10px" }}
+              onBlur={(e) =>
+                handleUpdateLatitude(item._id, e.currentTarget.value)
+              }
+            />
+
+            <TextField
+              label="Longitude"
+              size="small"
+              fullWidth={true}
+              defaultValue={`${item.geolocation?.longitude || ""}`}
+              sx={{ ml: "10px" }}
+              onBlur={(e) =>
+                handleUpdateLongitude(item._id, e.currentTarget.value)
+              }
+            />
+
+            <IconButton
+              color="info"
+              onClick={() => handleGeoLocation(item._id)}
+            >
+              <GpsFixedIcon />
+            </IconButton>
+
+            <IconButton
+              color="error"
+              onClick={() => handleDeletePhoto(item._id)}
+            >
+              <DeleteIcon />
+            </IconButton>
+
+            <IconButton onClick={() => updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) - 1)}>
+              <ArrowUpwardIcon/>
+            </IconButton>
+
+            <IconButton onClick={() => updatePhotoOrder(photos.indexOf(item), photos.indexOf(item) + 1)}>
+              <ArrowDownwardIcon/>
+            </IconButton>
+          </ListItem>
+        ))}
+      </List>
+
+      <LinearProgress sx={{height:"5px"}} variant="determinate" value={uploadProgress}/>
+
       <Button
         variant="contained"
         component="label"
-        sx={{ mb: "20px" }}
+        sx={{ mt: "10px" }}
         fullWidth={true}
       >
         Upload Files
@@ -116,66 +218,6 @@ const QuestPhotoManagement: React.FC<{questId: string}> = ({questId}) => {
           accept="image/*"
         />
       </Button>
-
-      <LinearProgress variant="determinate" value={uploadProgress} />
-      <ImageList variant="masonry" cols={2} gap={10}>
-        {photos.map((item) => (
-          <ImageListItem key={item._id}>
-            <img
-              srcSet={`${API_URL}/uploads/${item.path}?w=248&fit=crop&auto=format&dpr=2 2x`}
-              src={`${API_URL}/uploads/${item.path}?w=248&fit=crop&auto=format`}
-              loading="lazy"
-            />
-            <ImageListItemBar
-              title={
-                <InputBase
-                  sx={{ ml: 1, flex: 1 }}
-                  value={item.path}
-                  fullWidth={true}
-                />
-              }
-              position="below"
-            />
-            <Grid container>
-              <Grid xs>
-                <TextField
-                  label="Latitude"
-                  size="small"
-                  defaultValue={`${item.geolocation?.latitude || ""}`}
-                  onBlur={(e) => handleUpdateLatitude(item._id, e.currentTarget.value)}
-                />
-              </Grid>
-              <Grid xs>
-                <TextField
-                  label="Longitude"
-                  size="small"
-                  defaultValue={`${item.geolocation?.longitude || ""}`}
-                  sx={{ ml: "5px" }}
-                  onBlur={(e) => handleUpdateLongitude(item._id, e.currentTarget.value)}
-                />
-              </Grid>
-              <Grid>
-                <IconButton
-                  color="info"
-                  sx={{ ml: "25%" }}
-                  onClick={() => handleGeoLocation(item._id)}
-                >
-                  <GpsFixedIcon />
-                </IconButton>
-              </Grid>
-              <Grid xs>
-                <IconButton
-                  color="error"
-                  sx={{ ml: "20px" }}
-                  onClick={() => handleDeletePhoto(item._id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Grid>
-            </Grid>
-          </ImageListItem>
-        ))}
-      </ImageList>
     </>
   );
 };

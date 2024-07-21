@@ -152,8 +152,6 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         )}
       </div>
       <Dialog
-        fullWidth={true}
-        maxWidth={"md"}
         open={
           location.pathname !== "/" &&
           !location.pathname.startsWith("/select-location/")

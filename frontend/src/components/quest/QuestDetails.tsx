@@ -79,7 +79,7 @@ const QuestDetails: React.FC = () => {
       <Dialog
         open={true}
         fullWidth={true}
-        maxWidth={"md"}
+        maxWidth={"sm"}
       >
         <DialogTitle>
           <InputBase
