@@ -43,7 +43,7 @@ services:
     ports:
       - '27017:27017'
     volumes:
-      - mongo-data:/data/db
+      - ./mongo-data:/data/db
 
   telegram-bot:
     build:
@@ -60,5 +60,4 @@ services:
       - db
 
 volumes:
-  mongo-data:
   frontend_build:
